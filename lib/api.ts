@@ -70,17 +70,53 @@ export async function api<T>(
   )
   if (res.status === 204) return undefined as T
   const body = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    if (res.status === 401) window.dispatchEvent(new Event(SIGNED_OUT))
-    const error = body?.error ?? {}
-    throw new ApiError(
-      res.status,
-      error.code ?? "NETWORK",
-      error.message ?? "Kuch gadbad ho gayi.",
-      error.details
-    )
-  }
+  if (!res.ok) fail(res.status, body)
   return body as T
+}
+
+function fail(status: number, body: { error?: Record<string, never> }): never {
+  if (status === 401) window.dispatchEvent(new Event(SIGNED_OUT))
+  const error = body?.error ?? {}
+  throw new ApiError(
+    status,
+    error.code ?? "NETWORK",
+    error.message ?? "Kuch gadbad ho gayi.",
+    error.details
+  )
+}
+
+/** A voice command with live progress: the API streams one JSON line per pipeline stage as it finishes
+ *  ({"stage": "stt", "ms": 1749}), then {"command": …} or {"error": …}. */
+export async function apiProgress<T>(
+  path: string,
+  { json, form }: { json?: unknown; form?: FormData },
+  onStage: (stage: string, ms: number) => void
+): Promise<T> {
+  const res = await fetch(
+    `/api/kf/${path.replace(/^\/|\/$/g, "")}?progress=1`,
+    {
+      method: "POST",
+      headers:
+        json === undefined ? undefined : { "content-type": "application/json" },
+      body: form ?? JSON.stringify(json),
+    }
+  )
+  if (!res.ok || !res.body) fail(res.status, await res.json().catch(() => ({})))
+  const lines = res.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ""
+  for (;;) {
+    const { value, done } = await lines.read()
+    if (done) break
+    buffer += value
+    for (let end = buffer.indexOf("\n"); end >= 0; end = buffer.indexOf("\n")) {
+      const event = JSON.parse(buffer.slice(0, end))
+      buffer = buffer.slice(end + 1)
+      if (event.command) return event.command as T
+      if (event.error) fail(409, event)
+      onStage(event.stage, event.ms)
+    }
+  }
+  return fail(502, {})
 }
 
 /** Money as the API sends it (numbers) in Indian grouping, without the sign: the label says which way it went. */

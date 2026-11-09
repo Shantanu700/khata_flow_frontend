@@ -118,13 +118,7 @@ export function useLiveMic() {
     await s.ctx.close().catch(() => undefined)
   }, [])
 
-  /** The latest loudness (0–1), for the orb. */
-  const loudness = React.useCallback(
-    () => levels.current.values.at(-1) ?? 0,
-    []
-  )
-
   React.useEffect(() => () => void stop(), [stop])
 
-  return { phrases, levels, loudness, start, stop }
+  return { phrases, levels, start, stop }
 }

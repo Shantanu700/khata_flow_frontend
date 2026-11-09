@@ -246,7 +246,7 @@
   --text-8xl--line-height: normal;
 }
 
-/* The mic while a command is being understood: a gradient border turning round the AI orb (voice-powered-orb.tsx).
+/* The mic while a command is being understood: a gradient border turning round it.
    Lime and cyan are the brand's; the violet and rose stops are only here, to read as thinking, not as data. */
 @property --kf-turn {
   syntax: "<angle>";

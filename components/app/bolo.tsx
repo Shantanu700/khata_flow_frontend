@@ -3,6 +3,7 @@
 import * as React from "react"
 import {
   CircleCheckIcon,
+  CircleDotIcon,
   CircleIcon,
   ListChecksIcon,
   ListTodoIcon,
@@ -35,8 +36,7 @@ import {
   TraceTitle,
 } from "@/components/ui/trace"
 import { Notch, notchRadius } from "@/components/notch"
-import { VoicePoweredOrb } from "@/components/ui/voice-powered-orb"
-import { api, type VoiceCommand } from "@/lib/api"
+import { apiProgress, type VoiceCommand } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 /** The pipeline's stages as the chips show them, and the timings_ms keys each one adds up. */
@@ -52,6 +52,7 @@ const MAX_SECONDS = 19
 
 type Phase = "idle" | "listening" | "working" | "done"
 type Mode = "audio" | "text"
+type OnStage = (stage: string, ms: number) => void
 
 const recordingType = () =>
   [
@@ -82,7 +83,8 @@ export function BoloScreen() {
   const historyBox = useNotchBox(historyRef)
   const [phase, setPhase] = React.useState<Phase>("idle")
   const [command, setCommand] = React.useState<VoiceCommand | null>(null)
-  const [shown, setShown] = React.useState(STAGES.length)
+  // Stages the server has reported finished for the command in flight (timings_ms keys → ms).
+  const [ticks, setTicks] = React.useState<Record<string, number>>({})
   const [mode, setMode] = React.useState<Mode>("audio")
   const [error, setError] = React.useState("")
   const [typed, setTyped] = React.useState("")
@@ -91,14 +93,10 @@ export function BoloScreen() {
   const player = React.useRef<HTMLAudioElement | null>(null)
   const live = useLiveMic()
 
-  // Show a finished command: its steps move to "done" one by one with their real timings, then the reply plays.
+  // Show a finished command, then play its reply.
   const land = React.useCallback((c: VoiceCommand) => {
     setCommand(c)
     setPhase("done")
-    setShown(0)
-    STAGES.forEach((_, i) =>
-      window.setTimeout(() => setShown(i + 1), 110 * (i + 1))
-    )
     const url = audioUrl(c)
     if (url) {
       player.current?.pause()
@@ -109,12 +107,15 @@ export function BoloScreen() {
 
   // Through the shell: whatever the command wrote, every screen refetches and its figures roll.
   const send = React.useCallback(
-    async (call: () => Promise<VoiceCommand>, kind: Mode) => {
+    async (call: (onStage: OnStage) => Promise<VoiceCommand>, kind: Mode) => {
       setError("")
       setMode(kind)
+      setTicks({})
       setPhase("working")
+      const onStage: OnStage = (stage, ms) =>
+        setTicks((done) => ({ ...done, [stage]: ms }))
       try {
-        land(await run(call))
+        land(await run(() => call(onStage)))
       } catch {
         setPhase("idle")
         setError(t("error.generic"))
@@ -126,11 +127,12 @@ export function BoloScreen() {
   const sendText = React.useCallback(
     (text: string) =>
       send(
-        () =>
-          api<VoiceCommand>("voice/text-commands", {
-            method: "POST",
-            json: { text, language: code },
-          }),
+        (onStage) =>
+          apiProgress<VoiceCommand>(
+            "voice/text-commands",
+            { json: { text, language: code } },
+            onStage
+          ),
         "text"
       ),
     [send, code]
@@ -183,7 +185,8 @@ export function BoloScreen() {
       )
       form.append("language", code)
       send(
-        () => api<VoiceCommand>("voice/commands", { method: "POST", form }),
+        (onStage) =>
+          apiProgress<VoiceCommand>("voice/commands", { form }, onStage),
         "audio"
       )
     }
@@ -200,11 +203,12 @@ export function BoloScreen() {
   const answer = (body: { option_id?: string; confirm?: boolean }) =>
     command &&
     send(
-      () =>
-        api<VoiceCommand>(`voice/commands/${command.id}/clarify`, {
-          method: "POST",
-          json: body,
-        }),
+      (onStage) =>
+        apiProgress<VoiceCommand>(
+          `voice/commands/${command.id}/clarify`,
+          { json: body },
+          onStage
+        ),
       "text"
     )
 
@@ -251,17 +255,23 @@ export function BoloScreen() {
         <div className="-mx-2 flex min-h-0 w-[calc(100%+16px)] flex-1 flex-col overflow-y-auto px-2">
           <div className="m-auto flex w-full flex-col items-center gap-6 py-1">
             <div className={cn("relative mt-3", phone ? "size-24" : "size-32")}>
+              {phase === "listening" && (
+                <span
+                  aria-hidden
+                  className="absolute inset-0 animate-ring rounded-full bg-lime"
+                />
+              )}
               {phase === "working" ? (
                 <div
                   role="img"
                   aria-label={t("bolo.working")}
                   className={cn(
-                    "kf-ai-ring relative isolate animate-in rounded-full p-1 duration-300 fade-in-0 zoom-in-95",
+                    "kf-ai-ring relative isolate rounded-full p-1",
                     phone ? "size-24" : "size-32"
                   )}
                 >
-                  <div className="size-full overflow-hidden rounded-full bg-deep">
-                    <VoicePoweredOrb level={thinking} />
+                  <div className="grid size-full place-items-center rounded-full bg-deep">
+                    <MicIcon size={40} stroke={1.6} />
                   </div>
                 </div>
               ) : (
@@ -276,25 +286,12 @@ export function BoloScreen() {
                   aria-pressed={phase === "listening"}
                   onClick={listen}
                   className={cn(
-                    "relative grid cursor-pointer place-items-center overflow-hidden rounded-full transition-transform duration-150 active:scale-[0.96]",
-                    phase === "listening"
-                      ? "bg-deep text-white"
-                      : "bg-lime text-black",
+                    "relative grid cursor-pointer place-items-center rounded-full bg-lime text-black transition-transform duration-150 active:scale-[0.96]",
                     phone ? "size-24" : "size-32"
                   )}
                 >
                   {phase === "listening" ? (
-                    <>
-                      <VoicePoweredOrb
-                        level={live.loudness}
-                        className="absolute inset-0"
-                      />
-                      <StopIcon
-                        size={22}
-                        stroke={1.8}
-                        className="relative drop-shadow"
-                      />
-                    </>
+                    <StopIcon size={36} stroke={1.6} />
                   ) : (
                     <MicIcon size={40} stroke={1.6} />
                   )}
@@ -338,8 +335,7 @@ export function BoloScreen() {
                     : STAGES.filter((s) => s.timings.some((k) => k in timings))
                 }
                 working={phase === "working"}
-                done={phase === "done" ? shown : 0}
-                timings={timings}
+                timings={phase === "working" ? ticks : timings}
               />
             )}
             {phase === "done" && command && (
@@ -515,51 +511,32 @@ function Countdown({ until }: { until: string }) {
   )
 }
 
-/** The pipeline as AI Elements' Queue: what is left (shimmering while the server works) and what is done, each step
- *  with its real time from timings_ms. */
+/** The pipeline as AI Elements' Queue, live: each step moves to "done" with its time the moment the server reports
+ *  it, and the step being worked on shimmers. A step counts as done once all its timings are in, or once a later
+ *  step has started (a clarifying question ends Khata after resolving, without a commit). */
 function ProcessQueue({
   stages,
   working,
-  done,
   timings,
 }: {
   stages: typeof STAGES
   working: boolean
-  done: number
   timings: Record<string, number>
 }) {
   const { t } = useI18n()
-  const finished = stages.slice(0, done)
-  const left = stages.slice(done)
+  const started = stages.map((s) => s.timings.some((k) => k in timings))
+  const finished = stages.filter(
+    (s, i) =>
+      !working ||
+      s.timings.every((k) => k in timings) ||
+      (started[i] && started.slice(i + 1).some(Boolean))
+  )
+  const left = stages.filter((s) => !finished.includes(s))
   return (
     <Trace
       aria-label={t("bolo.pipeline")}
       className="w-full max-w-[640px] gap-4 rounded-[28px] bg-raised px-6 py-5 dark:bg-card"
     >
-      {left.length > 0 && (
-        <TraceCollapsible defaultOpen>
-          <TraceCollapsibleTrigger>
-            <TraceLine status={working ? "running" : undefined}>
-              <TraceIcon>
-                <ListTodoIcon />
-              </TraceIcon>
-              <TraceTitle>
-                {t("bolo.queue.todo", { count: left.length })}
-              </TraceTitle>
-            </TraceLine>
-          </TraceCollapsibleTrigger>
-          <TraceCollapsibleContent className="flex flex-col gap-2.5">
-            {left.map((s) => (
-              <TraceLine key={s.key} status="pending">
-                <TraceIcon>
-                  <CircleIcon />
-                </TraceIcon>
-                <TraceTitle>{t(s.key)}</TraceTitle>
-              </TraceLine>
-            ))}
-          </TraceCollapsibleContent>
-        </TraceCollapsible>
-      )}
       {finished.length > 0 && (
         <TraceCollapsible defaultOpen>
           <TraceCollapsibleTrigger>
@@ -574,7 +551,10 @@ function ProcessQueue({
           </TraceCollapsibleTrigger>
           <TraceCollapsibleContent className="flex flex-col gap-2.5">
             {finished.map((s) => (
-              <TraceLine key={s.key} className="text-foreground">
+              <TraceLine
+                key={s.key}
+                className="animate-in text-foreground duration-300 fade-in-0 slide-in-from-left-1"
+              >
                 <TraceIcon className="text-vasooli">
                   <CircleCheckIcon />
                 </TraceIcon>
@@ -590,9 +570,33 @@ function ProcessQueue({
           </TraceCollapsibleContent>
         </TraceCollapsible>
       )}
+      {left.length > 0 && (
+        <TraceCollapsible defaultOpen>
+          <TraceCollapsibleTrigger>
+            <TraceLine>
+              <TraceIcon>
+                <ListTodoIcon />
+              </TraceIcon>
+              <TraceTitle>
+                {t("bolo.queue.todo", { count: left.length })}
+              </TraceTitle>
+            </TraceLine>
+          </TraceCollapsibleTrigger>
+          <TraceCollapsibleContent className="flex flex-col gap-2.5">
+            {left.map((s, i) => (
+              <TraceLine
+                key={s.key}
+                status={working && i === 0 ? "running" : "pending"}
+              >
+                <TraceIcon>
+                  {working && i === 0 ? <CircleDotIcon /> : <CircleIcon />}
+                </TraceIcon>
+                <TraceTitle>{t(s.key)}</TraceTitle>
+              </TraceLine>
+            ))}
+          </TraceCollapsibleContent>
+        </TraceCollapsible>
+      )}
     </Trace>
   )
 }
-
-/** A slow breath for the orb while the server works: it keeps turning without a voice to follow. */
-const thinking = () => 0.3 + 0.15 * Math.sin(performance.now() / 600)
