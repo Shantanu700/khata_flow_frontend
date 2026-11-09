@@ -11,6 +11,7 @@ import {
   SearchIcon,
   TrashIcon,
 } from "@/components/app/icons"
+import { useI18n } from "@/components/app/i18n"
 import { useLayout } from "@/components/app/layout"
 import { CornerButton } from "@/components/app/parts"
 import { Notch, notchRadius } from "@/components/notch"
@@ -19,15 +20,9 @@ import { cn } from "@/lib/utils"
 
 export const PAGE = 11
 
-export function paginate<T>(rows: T[], page: number, size = PAGE) {
-  const pages = Math.max(1, Math.ceil(rows.length / size))
-  const current = Math.min(page, pages)
-  return {
-    pages,
-    current,
-    shown: rows.slice((current - 1) * size, current * size),
-  }
-}
+/** Pages for a server-paged list of `count` rows. */
+export const pagesOf = (count: number | undefined, size: number) =>
+  Math.max(1, Math.ceil((count ?? 0) / size))
 
 /** Size of the notch sitting directly in `ref`, so the title beside (or under) it clears it. */
 export function useNotchBox(ref: React.RefObject<HTMLElement | null>) {
@@ -229,10 +224,11 @@ export function FilterButton({
   active: boolean
   children: React.ReactNode
 }) {
+  const { t } = useI18n()
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
-        <RoundButton title="Chhaantiye" active={active}>
+        <RoundButton title={t("filter.label")} active={active}>
           <FilterIcon size={18} />
         </RoundButton>
       </Popover.Trigger>
@@ -285,6 +281,7 @@ export function Pager({
   onPage: (p: number) => void
 }) {
   const { phone } = useLayout()
+  const { t } = useI18n()
   return (
     <div
       className={cn(
@@ -292,10 +289,10 @@ export function Pager({
         phone ? "h-11 gap-0.5 p-1 [&_button]:size-9" : "h-[52px] gap-2 p-1.5"
       )}
       role="group"
-      aria-label="Page"
+      aria-label={t("page.label")}
     >
       <PageButton
-        label="Pichhla page"
+        label={t("page.prev")}
         disabled={page === 1}
         onClick={() => onPage(page - 1)}
       >
@@ -311,7 +308,7 @@ export function Pager({
         {page} <span className="text-muted-foreground">/ {pages}</span>
       </span>
       <PageButton
-        label="Agla page"
+        label={t("page.next")}
         disabled={page === pages}
         onClick={() => onPage(page + 1)}
       >
@@ -350,26 +347,6 @@ function PageButton({
 }
 
 export type View = "cards" | "table"
-const VIEWS: { value: View; label: React.ReactNode }[] = [
-  {
-    value: "cards",
-    label: (
-      <>
-        <GridIcon size={16} />
-        <span className="sr-only">Cards</span>
-      </>
-    ),
-  },
-  {
-    value: "table",
-    label: (
-      <>
-        <ListIcon size={16} />
-        <span className="sr-only">Table</span>
-      </>
-    ),
-  },
-]
 
 export function ViewToggle({
   value,
@@ -380,10 +357,31 @@ export function ViewToggle({
   onChange: (v: View) => void
   className?: string
 }) {
+  const { t } = useI18n()
+  const views: { value: View; label: React.ReactNode }[] = [
+    {
+      value: "cards",
+      label: (
+        <>
+          <GridIcon size={16} />
+          <span className="sr-only">{t("view.cards")}</span>
+        </>
+      ),
+    },
+    {
+      value: "table",
+      label: (
+        <>
+          <ListIcon size={16} />
+          <span className="sr-only">{t("view.table")}</span>
+        </>
+      ),
+    },
+  ]
   return (
     <Segmented
-      label="Kaise dikhaye"
-      options={VIEWS}
+      label={t("view.label")}
+      options={views}
       value={value}
       onChange={onChange}
       className={cn("h-[52px] bg-card p-1.5", className)}
@@ -432,6 +430,7 @@ export function CornerPager({
   onPage: (p: number) => void
   flip?: string
 }) {
+  const { t } = useI18n()
   const { phone } = useLayout()
   const first = total ? (page - 1) * size + 1 : 0
   // Phones page from the top notch instead (the host puts a Pager there).
@@ -441,7 +440,7 @@ export function CornerPager({
       <CornerButton
         corner="bl"
         flip={flip && `${flip}-bl`}
-        title="Pichhla page"
+        title={t("page.prev")}
         disabled={page === 1}
         onClick={() => onPage(page - 1)}
         className={cn("bg-lime text-black", phone && "size-11")}
@@ -486,7 +485,7 @@ export function CornerPager({
       <CornerButton
         corner="br"
         flip={flip && `${flip}-br`}
-        title="Agla page"
+        title={t("page.next")}
         disabled={page === pages}
         onClick={() => onPage(page + 1)}
         className={cn("bg-lime text-black", phone && "size-11")}
@@ -534,6 +533,7 @@ export function FormDialog({
   drawer?: boolean
   children: React.ReactNode
 }) {
+  const { t } = useI18n()
   const { phone } = useLayout()
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
@@ -563,8 +563,8 @@ export function FormDialog({
             {children}
           </div>
           <Dialog.Close
-            title="Band karo"
-            aria-label="Band karo"
+            title={t("form.close")}
+            aria-label={t("form.close")}
             className="absolute top-0 right-0 grid cursor-pointer place-items-center rounded-full bg-[#fe9695] text-black transition-transform duration-150 hover:rotate-90"
             style={{ width: BTN, height: BTN }}
           >
@@ -580,28 +580,67 @@ export function FormDialog({
 export function FormActions({
   submit,
   onDelete,
+  busy,
 }: {
   submit: React.ReactNode
   onDelete?: () => void
+  /** a write is on its way: the buttons wait */
+  busy?: boolean
 }) {
+  const { t } = useI18n()
   return (
     <div className="flex gap-[10px] pt-1">
       {onDelete ? (
         <button
           type="button"
           onClick={onDelete}
-          className="flex h-14 flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#fe9695]/15 text-base text-[var(--red-ink)] transition-colors duration-150 hover:bg-[#fe9695]/25"
+          disabled={busy}
+          className="flex h-14 flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#fe9695]/15 text-base text-[var(--red-ink)] transition-colors duration-150 hover:bg-[#fe9695]/25 disabled:opacity-50"
         >
           <TrashIcon size={18} />
-          Hatao
+          {t("form.delete")}
         </button>
       ) : null}
       <button
         type="submit"
-        className="h-14 flex-1 cursor-pointer rounded-full bg-lime text-base font-medium text-black transition-transform duration-150 hover:scale-[1.02]"
+        disabled={busy}
+        className="h-14 flex-1 cursor-pointer rounded-full bg-lime text-base font-medium text-black transition-[background-color,transform] duration-150 hover:bg-lime/85 active:scale-[0.98] disabled:cursor-default disabled:opacity-60"
       >
-        {submit}
+        {busy ? t("form.saving") : submit}
       </button>
     </div>
+  )
+}
+
+/** A write's refusal (409) or failure, shown inside its form. */
+export function FormError({ error }: { error: string }) {
+  if (!error) return null
+  return (
+    <p
+      role="alert"
+      className="rounded-[20px] bg-[#fe9695]/15 px-5 py-3 text-sm text-[var(--red-ink)]"
+    >
+      {error}
+    </p>
+  )
+}
+
+/** A list that couldn't load: the message and a retry. */
+export function LoadError({ onRetry }: { onRetry: () => void }) {
+  const { t } = useI18n()
+  return (
+    <p
+      role="alert"
+      className="flex items-center gap-3 px-1 py-6 text-sm text-muted-foreground"
+    >
+      {t("error.load")}
+      <button
+        type="button"
+        onClick={onRetry}
+        className="cursor-pointer rounded-full bg-raised px-4 py-2 text-foreground"
+      >
+        {t("error.retry")}
+      </button>
+    </p>
   )
 }

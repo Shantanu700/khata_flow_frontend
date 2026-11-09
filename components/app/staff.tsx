@@ -5,8 +5,19 @@ import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import { Dialog } from "radix-ui"
 
+import {
+  SIZE,
+  useDebounced,
+  useStaff,
+  useStaffMonth,
+  useStaffMoves,
+  useSummary,
+  write,
+} from "@/components/app/data"
+import { errorText, useI18n } from "@/components/app/i18n"
 import { ArrowIcon, ChevronIcon, PencilIcon } from "@/components/app/icons"
-import { ATT_DAYS, dateOf, inr, type Book } from "@/components/app/khata-data"
+import { entryView, initial } from "@/components/app/khata-data"
+import { useLayout } from "@/components/app/layout"
 import {
   AddButton,
   CornerPager,
@@ -14,80 +25,108 @@ import {
   FilterButton,
   FormActions,
   FormDialog,
+  FormError,
   LedgerCard,
+  LoadError,
   NotchSearch,
-  PAGE,
   Pager,
   SearchField,
   ViewToggle,
-  paginate,
+  pagesOf,
   type View,
 } from "@/components/app/ledger"
-import { useLayout } from "@/components/app/layout"
 import { CornerButton, Dot, Swap } from "@/components/app/parts"
+import { useShell } from "@/components/app/shell"
 import { Segmented } from "@/components/segmented"
+import { inr, isoDay, parseDay, type Party } from "@/lib/api"
 import { reduceMotion } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
-type Person = Book["staff"][number]
-
-type Show = "sab" | "advance" | "bina"
-const SHOW: { value: Show; label: string }[] = [
-  { value: "sab", label: "Sab" },
-  { value: "advance", label: "Advance liya" },
-  { value: "bina", label: "Bina advance" },
+type Show = "sab" | "yes" | "no"
+const SHOW: { value: Show; key: string }[] = [
+  { value: "sab", key: "staff.show.all" },
+  { value: "yes", key: "staff.show.advance" },
+  { value: "no", key: "staff.show.none" },
 ]
-const CARDS = 4
 const COLS = "grid grid-cols-[minmax(0,1.6fr)_90px_110px_120px_36px_36px] gap-4"
 
-export function StaffScreen({
-  book,
-  saveStaff,
-  markPresent,
-  giveAdvance,
-}: {
-  book: Book
-  saveStaff: (name: string, salary: number) => void
-  markPresent: (name: string) => void
-  giveAdvance: (name: string, val: number) => void
-}) {
+/** What can still be handed over this month, as advance or salary (the server refuses more). */
+const salaryLeft = (p: Party) =>
+  Math.max(
+    0,
+    (p.monthly_salary ?? 0) -
+      (p.staff_due?.advances ?? 0) -
+      (p.staff_due?.salary_paid ?? 0)
+  )
+
+const lastDays = (n: number) =>
+  Array.from({ length: n }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (n - 1 - i))
+    return isoDay(d)
+  })
+
+type Money = "STAFF_ADVANCE" | "SALARY_PAID"
+
+export function StaffScreen() {
+  const { t } = useI18n()
+  const { run } = useShell()
   const [query, setQuery] = React.useState("")
   const [show, setShow] = React.useState<Show>("sab")
   const [page, setPage] = React.useState(1)
   const [view, setView] = React.useState<View>("cards")
-  const [editing, setEditing] = React.useState<Person | "new" | null>(null)
-  const [ledgerOf, setLedgerOf] = React.useState<string | null>(null)
-  const [lending, setLending] = React.useState<Person | null>(null)
+  const [editing, setEditing] = React.useState<Party | "new" | null>(null)
+  const [ledgerOf, setLedgerOf] = React.useState<Party | null>(null)
+  const [paying, setPaying] = React.useState<{
+    person: Party
+    kind: Money
+  } | null>(null)
   const { phone, narrow, compact } = useLayout()
-  const open = book.staff.find((s) => s.name === ledgerOf)
-  const q = query.trim().toLowerCase()
-  const list = book.staff.filter(
-    (s) =>
-      (show === "sab" || (show === "advance") === s.advance > 0) &&
-      (!q || s.name.toLowerCase().includes(q))
+  const q = useDebounced(query.trim())
+  const size = view === "cards" ? SIZE.staffCards : SIZE.table
+  const list = useStaff({
+    q: q || undefined,
+    advance: show === "sab" ? undefined : show,
+    page,
+    page_size: size,
+  })
+  const summary = useSummary()
+  const shown = list.data?.results ?? []
+  const count = list.data?.count ?? 0
+  const pages = pagesOf(count, size)
+  const due = (summary.data?.staff_dues ?? []).reduce(
+    (a, s) => a + Math.max(0, s.due),
+    0
   )
-  const size = view === "cards" ? CARDS : PAGE
-  const { pages, current, shown } = paginate(list, page, size)
-  const due = book.staff.reduce((a, s) => a + Math.max(0, s.pay - s.advance), 0)
+  const showOptions = SHOW.map((s) => ({ value: s.value, label: t(s.key) }))
+  const markPresent = (s: Party) =>
+    run(() =>
+      s.present_today
+        ? write.undo(s.present_today)
+        : write.addEntry({ kind: "ATTENDANCE", party: s.id })
+    ).catch(() => undefined)
 
   return (
     <div className={cn("flex flex-col", !compact && "h-full")}>
       <LedgerCard
         flip="main"
         className={cn(!phone && "pb-[92px]", !compact && "min-h-0 flex-1")}
-        title="Staff"
-        sub={`${book.staff.length} log · ₹${due.toLocaleString("en-IN")} baaki`}
+        title={t("staff.title")}
+        sub={t("staff.sub", {
+          count: summary.data?.staff_dues.length ?? 0,
+          due: inr(due),
+        })}
         controls={
           <>
             <SearchField
               value={query}
               onChange={(v) => (setQuery(v), setPage(1))}
-              placeholder="Naam dhoondo"
-              label="Staff mein dhoondo"
+              placeholder={t("staff.search")}
+              label={t("staff.searchLabel")}
             />
             <Segmented
-              label="Dikhao"
-              options={SHOW}
+              label={t("stock.showLabel")}
+              options={showOptions}
               value={show}
               onChange={(v) => (setShow(v), setPage(1))}
               className="h-[52px] bg-card p-1.5"
@@ -96,7 +135,10 @@ export function StaffScreen({
               value={view}
               onChange={(v) => (setView(v), setPage(1))}
             />
-            <AddButton label="Naya staff" onClick={() => setEditing("new")} />
+            <AddButton
+              label={t("staff.new")}
+              onClick={() => setEditing("new")}
+            />
           </>
         }
         compactControls={
@@ -104,13 +146,13 @@ export function StaffScreen({
             <NotchSearch
               value={query}
               onChange={(v) => (setQuery(v), setPage(1))}
-              placeholder="Naam dhoondo"
-              label="Staff mein dhoondo"
+              placeholder={t("staff.search")}
+              label={t("staff.searchLabel")}
             />
             <FilterButton active={show !== "sab"}>
               <Segmented
-                label="Dikhao"
-                options={SHOW}
+                label={t("stock.showLabel")}
+                options={showOptions}
                 value={show}
                 onChange={(v) => (setShow(v), setPage(1))}
                 className="h-[52px] bg-card p-1.5"
@@ -122,8 +164,11 @@ export function StaffScreen({
                 className="w-fit"
               />
             </FilterButton>
-            {phone && <Pager page={current} pages={pages} onPage={setPage} />}
-            <AddButton label="Naya staff" onClick={() => setEditing("new")} />
+            {phone && <Pager page={page} pages={pages} onPage={setPage} />}
+            <AddButton
+              label={t("staff.new")}
+              onClick={() => setEditing("new")}
+            />
           </>
         }
         toolbar={null}
@@ -132,31 +177,34 @@ export function StaffScreen({
           <div className="flex flex-col gap-1.5">
             {shown.map((s) => (
               <div
-                key={s.name}
+                key={s.id}
                 className="flex items-center gap-3 rounded-[18px] bg-background py-3 pr-2.5 pl-3"
               >
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-raised">
-                  {s.initial}
+                  {initial(s.name)}
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
                   <span className="truncate text-sm font-medium">{s.name}</span>
                   <span className="text-xs text-muted-foreground">
-                    {s.att}/14 din · {s.adv} advance
+                    {t("staff.rowMeta", {
+                      days: s.attendance_14d?.length ?? 0,
+                      advance: inr(s.staff_due?.advances),
+                    })}
                   </span>
                 </span>
                 <span className="shrink-0 text-right">
                   <span className="block text-[15px] font-light tabular-nums">
-                    {s.due}
+                    {inr(salaryLeft(s))}
                   </span>
                   <span className="block text-[11px] text-muted-foreground">
-                    baaki
+                    {t("staff.left")}
                   </span>
                 </span>
                 <button
                   type="button"
-                  title={`${s.name} ka poora hisaab`}
-                  aria-label={`${s.name} ka poora hisaab`}
-                  onClick={() => setLedgerOf(s.name)}
+                  title={t("staff.fullAccount", { name: s.name })}
+                  aria-label={t("staff.fullAccount", { name: s.name })}
+                  onClick={() => setLedgerOf(s)}
                   className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-raised"
                 >
                   <ArrowIcon size={14} />
@@ -172,16 +220,16 @@ export function StaffScreen({
                 "min-w-[620px] pr-2.5 pl-4 text-xs font-medium text-muted-foreground"
               )}
             >
-              <span>Naam</span>
-              <span className="text-right">Haazri</span>
-              <span className="text-right">Advance</span>
-              <span className="text-right">Baaki tankhwah</span>
+              <span>{t("col.name")}</span>
+              <span className="text-right">{t("staff.col.present")}</span>
+              <span className="text-right">{t("staff.col.advance")}</span>
+              <span className="text-right">{t("staff.col.left")}</span>
               <span />
               <span />
             </div>
             {shown.map((s) => (
               <div
-                key={s.name}
+                key={s.id}
                 className={cn(
                   COLS,
                   "group min-w-[620px] items-center rounded-[18px] bg-background py-3 pr-2.5 pl-4 transition-colors duration-150 hover:bg-raised"
@@ -189,41 +237,42 @@ export function StaffScreen({
               >
                 <span className="flex min-w-0 items-center gap-3">
                   <span className="grid size-9 shrink-0 place-items-center rounded-full bg-raised group-hover:bg-card">
-                    {s.initial}
+                    {initial(s.name)}
                   </span>
                   <span className="flex min-w-0 flex-col gap-px">
                     <span className="truncate text-sm font-medium">
                       {s.name}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {s.salary} / mahina
+                      {t("staff.perMonth", { salary: inr(s.monthly_salary) })}
                     </span>
                   </span>
                 </span>
                 <span className="text-right text-sm tabular-nums">
-                  {s.att} <span className="text-muted-foreground">/ 14</span>
+                  {s.attendance_14d?.length ?? 0}{" "}
+                  <span className="text-muted-foreground">/ 14</span>
                 </span>
                 <span className="text-right text-[15px] font-light tabular-nums">
-                  {s.adv}
+                  {inr(s.staff_due?.advances)}
                 </span>
                 <span className="text-right text-[15px] font-light tabular-nums">
-                  {s.due}
+                  {inr(salaryLeft(s))}
                 </span>
                 <button
                   type="button"
-                  title={`${s.name} ka poora hisaab`}
-                  aria-label={`${s.name} ka poora hisaab`}
-                  onClick={() => setLedgerOf(s.name)}
-                  className="grid size-9 cursor-pointer place-items-center rounded-full bg-raised transition-transform duration-200 group-hover:bg-card hover:rotate-45"
+                  title={t("staff.fullAccount", { name: s.name })}
+                  aria-label={t("staff.fullAccount", { name: s.name })}
+                  onClick={() => setLedgerOf(s)}
+                  className="grid size-9 cursor-pointer place-items-center rounded-full bg-raised transition-transform duration-200 group-hover:bg-card hover:rotate-45 coarse:size-11"
                 >
                   <ArrowIcon size={14} />
                 </button>
                 <button
                   type="button"
-                  title={`${s.name} badlo`}
-                  aria-label={`${s.name} badlo`}
+                  title={t("stock.edit", { name: s.name })}
+                  aria-label={t("stock.edit", { name: s.name })}
                   onClick={() => setEditing(s)}
-                  className="grid size-9 cursor-pointer place-items-center rounded-full bg-raised group-hover:bg-card"
+                  className="grid size-9 cursor-pointer place-items-center rounded-full bg-raised group-hover:bg-card coarse:size-11"
                 >
                   <PencilIcon size={14} />
                 </button>
@@ -240,26 +289,27 @@ export function StaffScreen({
           >
             {shown.map((s) => (
               <StaffCard
-                key={s.name}
+                key={s.id}
                 s={s}
                 onEdit={() => setEditing(s)}
-                onLedger={() => setLedgerOf(s.name)}
-                onPresent={() => markPresent(s.name)}
-                onAdvance={() => setLending(s)}
+                onLedger={() => setLedgerOf(s)}
+                onPresent={() => markPresent(s)}
+                onPay={(kind) => setPaying({ person: s, kind })}
               />
             ))}
           </div>
         )}
-        {list.length === 0 && (
+        {list.isError && <LoadError onRetry={() => list.refetch()} />}
+        {list.data && count === 0 && (
           <p className="px-1 py-7 text-sm text-muted-foreground">
-            Koi staff nahi mila.
+            {t("staff.none")}
           </p>
         )}
         <CornerPager
           flip="main"
-          total={list.length}
+          total={count}
           size={size}
-          page={current}
+          page={page}
           pages={pages}
           onPage={setPage}
         />
@@ -267,87 +317,81 @@ export function StaffScreen({
       <FormDialog open={editing !== null} onClose={() => setEditing(null)}>
         {editing !== null && (
           <StaffForm
-            key={editing === "new" ? "" : editing.name}
+            key={editing === "new" ? "" : editing.id}
             person={editing === "new" ? null : editing}
-            taken={book.staff.map((s) => s.name)}
-            onSave={(name, salary) => (
-              saveStaff(name, salary),
-              setEditing(null)
-            )}
+            onDone={() => setEditing(null)}
           />
         )}
       </FormDialog>
-      <FormDialog open={lending !== null} onClose={() => setLending(null)}>
-        {lending && (
-          <AdvanceForm
-            person={lending}
-            onSave={(val) => (giveAdvance(lending.name, val), setLending(null))}
+      <FormDialog open={paying !== null} onClose={() => setPaying(null)}>
+        {paying && (
+          <PayForm
+            key={paying.kind}
+            person={paying.person}
+            kind={paying.kind}
+            onDone={() => setPaying(null)}
           />
         )}
       </FormDialog>
-      <FormDialog drawer open={!!open} onClose={() => setLedgerOf(null)}>
-        {open && <StaffLedger key={open.name} person={open} />}
+      <FormDialog
+        drawer
+        open={ledgerOf !== null}
+        onClose={() => setLedgerOf(null)}
+      >
+        {ledgerOf && <StaffLedger key={ledgerOf.id} person={ledgerOf} />}
       </FormDialog>
     </div>
   )
 }
 
-/** Oldest first: every month the 15-day demo window touches. */
-const MONTHS = [
-  ...new Map(
-    Array.from({ length: 15 }, (_, d) => {
-      const t = dateOf(14 - d)
-      return [
-        `${t.getFullYear()}-${t.getMonth()}`,
-        { y: t.getFullYear(), m: t.getMonth() },
-      ] as const
-    })
-  ).values(),
-]
-const WEEKDAYS = ["So", "Ma", "Bu", "Gu", "Shu", "Sha", "Ra"]
 type Mark = "present" | "absent" | "none" | "future"
 
-function StaffLedger({ person }: { person: Person }) {
-  const [mi, setMi] = React.useState(MONTHS.length - 1)
-  const { y, m } = MONTHS[mi]
-  const today = dateOf(0).getTime()
-  const total = new Date(y, m + 1, 0).getDate()
-  const lead = (new Date(y, m, 1).getDay() + 6) % 7
-  const days = Array.from({ length: total }, (_, i) => {
-    const d = Math.round((today - new Date(y, m, i + 1).getTime()) / 86_400_000)
+function StaffLedger({ person }: { person: Party }) {
+  const { t, locale } = useI18n()
+  const today = isoDay()
+  const [month, setMonth] = React.useState(today.slice(0, 7))
+  const [y, m] = month.split("-").map(Number)
+  const first = `${month}-01`
+  const last = isoDay(new Date(y, m, 0))
+  const data = useStaffMonth(person.id, month)
+  const moves = useStaffMoves(person.id, first, last)
+  const joined = person.created_at.slice(0, 10)
+  const present = new Set(data.data?.present_days ?? [])
+  const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7
+  const days = Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => {
+    const iso = isoDay(new Date(y, m - 1, i + 1))
     const mark: Mark =
-      d < 0
+      iso > today
         ? "future"
-        : d >= ATT_DAYS
-          ? "none"
-          : person.present.includes(d)
-            ? "present"
+        : present.has(iso)
+          ? "present"
+          : iso < joined
+            ? "none"
             : "absent"
-    return { day: i + 1, d, mark }
+    return { day: i + 1, iso, mark }
   })
-  const present = days.filter((x) => x.mark === "present").length
   const recorded = days.filter(
     (x) => x.mark === "present" || x.mark === "absent"
   ).length
-  const moves = person.moves.filter((e) => {
-    const t = dateOf(e.d)
-    return t.getFullYear() === y && t.getMonth() === m
-  })
-  const advance = moves
-    .filter((e) => !e.faded)
-    .reduce((a, e) => a + e.rupees, 0)
-  const label = new Date(y, m).toLocaleString("en-IN", {
+  const rows = (moves.data?.results ?? []).map((e) => entryView(e, t, locale))
+  const step = (by: number) => {
+    const d = new Date(y, m - 1 + by, 1)
+    setMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`)
+  }
+  const label = new Date(y, m - 1).toLocaleDateString(locale, {
     month: "long",
     year: "numeric",
   })
+  const s = data.data
 
   // Lead Flow's drawer timeline: on open (after the slide) and on each month, rows fade up in turn
   // and the calendar's days pop in.
   const ref = React.useRef<HTMLDivElement>(null)
   const opened = React.useRef(false)
+  const ready = Boolean(s && moves.data)
   useGSAP(
     () => {
-      if (reduceMotion()) return
+      if (!ready || reduceMotion()) return
       const delay = opened.current ? 0 : 0.12
       opened.current = true
       gsap.fromTo(
@@ -377,34 +421,34 @@ function StaffLedger({ person }: { person: Person }) {
         }
       )
     },
-    { scope: ref, dependencies: [mi] }
+    { scope: ref, dependencies: [month, ready] }
   )
 
   return (
     <div ref={ref} className="flex flex-col gap-6">
       <div className="flex items-center gap-3.5 pr-12">
         <span className="grid size-14 shrink-0 place-items-center rounded-full bg-raised text-xl">
-          {person.initial}
+          {initial(person.name)}
         </span>
         <div className="min-w-0">
           <Dialog.Title className="truncate text-[28px] font-light">
             {person.name}
           </Dialog.Title>
           <Dialog.Description className="text-sm text-muted-foreground">
-            Tankhwah {person.salary} / mahina
+            {t("staff.salaryLine", { salary: inr(person.monthly_salary) })}
           </Dialog.Description>
         </div>
       </div>
 
       <div
         role="group"
-        aria-label="Mahina chuniye"
+        aria-label={t("staff.pickMonth")}
         className="flex h-[52px] items-center justify-between rounded-full bg-background p-1.5"
       >
         <MonthButton
-          label="Pichhla mahina"
-          disabled={mi === 0}
-          onClick={() => setMi(mi - 1)}
+          label={t("range.prevMonth")}
+          disabled={first <= joined.slice(0, 8) + "01"}
+          onClick={() => step(-1)}
         >
           <ChevronIcon left size={16} />
         </MonthButton>
@@ -412,9 +456,9 @@ function StaffLedger({ person }: { person: Person }) {
           {label}
         </span>
         <MonthButton
-          label="Agla mahina"
-          disabled={mi === MONTHS.length - 1}
-          onClick={() => setMi(mi + 1)}
+          label={t("range.nextMonth")}
+          disabled={month >= today.slice(0, 7)}
+          onClick={() => step(1)}
         >
           <ChevronIcon size={16} />
         </MonthButton>
@@ -422,52 +466,51 @@ function StaffLedger({ person }: { person: Person }) {
 
       <div className="grid grid-cols-2 gap-[10px]">
         <Tile
-          value={`${present} din`}
+          value={t("staff.days", { count: s?.days_present ?? 0 })}
           label={
             recorded
-              ? `haazri · ${recorded} din ka record`
-              : "haazri · koi record nahi"
+              ? t("staff.recorded", { count: recorded })
+              : t("staff.noRecord")
           }
           raised
         />
-        <Tile value={inr(advance)} label="advance is mahine" raised />
-        <Tile value={person.salary} label="tankhwah" raised />
+        <Tile value={inr(s?.advances)} label={t("staff.advanceMonth")} raised />
+        <Tile value={inr(s?.earned)} label={t("staff.earned")} raised />
         <Tile
-          value={inr(person.pay - advance)}
-          label="baaki, advance katke"
+          value={inr(Math.max(0, s?.due ?? 0))}
+          label={t("staff.dueAfter")}
           paper
         />
       </div>
 
       <section
-        aria-label="Haazri"
+        aria-label={t("staff.attendance")}
         className="flex flex-col gap-3 rounded-[28px] bg-background p-4"
       >
         <div className="flex items-baseline justify-between px-1">
-          <h3 className="text-base">Haazri</h3>
+          <h3 className="text-base">{t("staff.attendance")}</h3>
           <span className="text-sm text-muted-foreground tabular-nums">
-            {present} / {recorded} din
+            {t("staff.presentOf", {
+              present: s?.days_present ?? 0,
+              count: recorded,
+            })}
           </span>
         </div>
         <div className="grid grid-cols-7 gap-y-1.5 text-center">
-          {WEEKDAYS.map((w) => (
-            <span key={w} className="pb-1 text-[11px] text-muted-foreground">
-              {w}
-            </span>
-          ))}
+          {t("weekday.short")
+            .split(",")
+            .map((w) => (
+              <span key={w} className="pb-1 text-[11px] text-muted-foreground">
+                {w}
+              </span>
+            ))}
           {days.map((x, i) => (
             <span
               key={x.day}
               data-tl-dot
               style={i === 0 ? { gridColumnStart: lead + 1 } : undefined}
               title={
-                x.mark === "present"
-                  ? "Aaye"
-                  : x.mark === "absent"
-                    ? "Nahi aaye"
-                    : x.mark === "none"
-                      ? "Record nahi"
-                      : undefined
+                x.mark === "future" ? undefined : t(`staff.mark.${x.mark}`)
               }
               className={cn(
                 "mx-auto grid aspect-square w-full max-w-10 place-items-center rounded-full text-sm tabular-nums",
@@ -476,7 +519,7 @@ function StaffLedger({ person }: { person: Person }) {
                 x.mark === "none" &&
                   "border border-dashed border-line text-muted-foreground",
                 x.mark === "future" && "text-muted-foreground opacity-40",
-                x.d === 0 &&
+                x.iso === today &&
                   "ring-1 ring-lime ring-offset-2 ring-offset-background"
               )}
             >
@@ -487,27 +530,27 @@ function StaffLedger({ person }: { person: Person }) {
         <div className="flex flex-wrap gap-4 px-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Dot color="var(--cyan)" size={8} />
-            Aaye
+            {t("staff.mark.present")}
           </span>
           <span className="flex items-center gap-1.5">
             <Dot color="var(--raised)" size={8} />
-            Nahi aaye
+            {t("staff.mark.absent")}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="size-2 rounded-full border border-dashed border-muted-foreground" />
-            Record nahi
+            {t("staff.mark.none")}
           </span>
         </div>
       </section>
 
       <section
-        aria-label="Is mahine ka hisaab"
+        aria-label={t("staff.monthAccount")}
         className="flex flex-col gap-1.5"
       >
         <h3 className="mb-1.5 text-sm text-muted-foreground">
-          Is mahine ka hisaab
+          {t("staff.monthAccount")}
         </h3>
-        {moves.map((e) => (
+        {rows.map((e) => (
           <div
             key={e.id}
             data-tl-item
@@ -536,9 +579,9 @@ function StaffLedger({ person }: { person: Person }) {
             </span>
           </div>
         ))}
-        {moves.length === 0 && (
+        {moves.data && rows.length === 0 && (
           <p className="rounded-[18px] bg-background px-4 py-5 text-sm text-muted-foreground">
-            Is mahine koi advance nahi.
+            {t("staff.monthNone")}
           </p>
         )}
       </section>
@@ -576,57 +619,65 @@ function StaffCard({
   onEdit,
   onLedger,
   onPresent,
-  onAdvance,
+  onPay,
 }: {
-  s: Person
+  s: Party
   onEdit: () => void
   onLedger: () => void
   onPresent: () => void
-  onAdvance: () => void
+  onPay: (kind: Money) => void
 }) {
+  const { t, locale } = useI18n()
+  const here = s.present_today !== null
+  const present = new Set(s.attendance_14d ?? [])
+  const left = salaryLeft(s)
   return (
     <div className="relative min-h-0 rounded-[32px] bg-raised">
       <div className="flex h-full flex-col justify-between gap-3 overflow-y-auto rounded-[32px] p-6 short:gap-2 short:p-5">
         <div className="flex items-center gap-3 pr-24">
           <span className="grid size-12 shrink-0 place-items-center rounded-full bg-card text-lg short:size-10">
-            {s.initial}
+            {initial(s.name)}
           </span>
           <div className="min-w-0">
             <p className="truncate text-2xl font-light short:text-xl">
               {s.name}
             </p>
             <p className="text-sm text-muted-foreground">
-              Tankhwah {s.salary} / mahina
+              {t("staff.salaryLine", { salary: inr(s.monthly_salary) })}
             </p>
           </div>
         </div>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-[10px]">
           <Tile
-            value={String(s.att)}
-            label="din haazri · 14 din"
-            roll={`${s.name}-att`}
+            value={String(s.attendance_14d?.length ?? 0)}
+            label={t("staff.days14")}
+            roll={`staff-${s.id}-att`}
           />
-          <Tile value={s.adv} label="advance liya" roll={`${s.name}-adv`} />
           <Tile
-            value={s.due}
-            label="baaki tankhwah"
+            value={inr(s.staff_due?.advances)}
+            label={t("staff.advanceMonth")}
+            roll={`staff-${s.id}-adv`}
+          />
+          <Tile
+            value={inr(left)}
+            label={t("staff.left")}
             paper
-            roll={`${s.name}-due`}
+            roll={`staff-${s.id}-left`}
           />
         </div>
-        <div role="group" aria-label="Haazri, pichhle 14 din">
+        <div role="group" aria-label={t("staff.last14")}>
           <div className="grid grid-cols-[repeat(14,minmax(0,1fr))] gap-1">
-            {s.days.map((d) => (
-              <div key={d.label} className="flex flex-col items-center gap-1.5">
+            {lastDays(14).map((iso, i) => (
+              <div key={iso} className="flex flex-col items-center gap-1.5">
                 <span
-                  title={`${d.label}: ${d.present ? "aaye" : "nahi aaye"}`}
+                  title={`${parseDay(iso).toLocaleDateString(locale, { day: "numeric", month: "short" })}: ${t(present.has(iso) ? "staff.mark.present" : "staff.mark.absent")}`}
                   className={cn(
                     "aspect-square w-full max-w-6 rounded-full",
-                    d.present ? "bg-cyan" : "bg-card"
+                    present.has(iso) ? "bg-cyan" : "bg-card"
                   )}
                 />
                 <span className="text-[10px] text-muted-foreground short:hidden">
-                  {d.label}
+                  {i === 13 ? t("day.today") : parseDay(iso).getDate()}
                 </span>
               </div>
             ))}
@@ -636,48 +687,47 @@ function StaffCard({
           <button
             type="button"
             onClick={onPresent}
-            aria-pressed={s.today}
-            title={s.today ? "Aaj ki haazri hatao" : "Aaj ki haazri lagao"}
+            aria-pressed={here}
+            title={here ? t("staff.unmarkTitle") : t("staff.markTitle")}
             className={cn(
               "h-10 cursor-pointer rounded-full px-4 text-sm transition-colors duration-150 short:h-9",
-              s.today ? "bg-lime text-black" : "bg-card"
+              here ? "bg-lime text-black" : "bg-card"
             )}
           >
-            <Swap on={s.today} off="Haazri lagao">
-              Aaj aaye ✓
+            <Swap on={here} off={t("staff.mark")}>
+              {t("staff.marked")}
             </Swap>
           </button>
           <button
             type="button"
-            onClick={onAdvance}
-            disabled={s.pay - s.advance <= 0}
-            title={
-              s.pay - s.advance <= 0
-                ? "Poori tankhwah advance mein ja chuki"
-                : undefined
-            }
+            onClick={() => onPay("STAFF_ADVANCE")}
+            disabled={left <= 0}
+            title={left <= 0 ? t("staff.salaryGone") : undefined}
             className="h-10 cursor-pointer rounded-full bg-card px-4 text-sm disabled:cursor-default disabled:opacity-40 short:h-9"
           >
-            Advance diya
+            {t("staff.gaveAdvance")}
           </button>
           <button
             type="button"
-            className="h-10 cursor-pointer rounded-full bg-card px-4 text-sm short:h-9"
+            onClick={() => onPay("SALARY_PAID")}
+            disabled={left <= 0}
+            title={left <= 0 ? t("staff.salaryGone") : undefined}
+            className="h-10 cursor-pointer rounded-full bg-card px-4 text-sm disabled:cursor-default disabled:opacity-40 short:h-9"
           >
-            Tankhwah di
+            {t("staff.paidSalary")}
           </button>
           <button
             type="button"
             onClick={onLedger}
             className="flex h-10 cursor-pointer items-center gap-2 rounded-full bg-card px-4 text-sm short:h-9"
           >
-            Poora hisaab
+            {t("staff.fullAccountShort")}
             <ArrowIcon size={14} />
           </button>
         </div>
       </div>
       <CornerButton
-        title={`${s.name} badlo`}
+        title={t("stock.edit", { name: s.name })}
         bg="var(--card)"
         className="bg-raised"
         onClick={onEdit}
@@ -730,65 +780,76 @@ function Tile({
 
 function StaffForm({
   person,
-  taken,
-  onSave,
+  onDone,
 }: {
-  person: Person | null
-  taken: string[]
-  onSave: (name: string, salary: number) => void
+  person: Party | null
+  onDone: () => void
 }) {
+  const { t } = useI18n()
+  const { run } = useShell()
   const [error, setError] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
 
-  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
     const salary = Number(f.get("salary"))
-    if (person) return onSave(person.name, salary)
-    const name = String(f.get("name")).trim().replace(/\s+/g, " ")
-    if (!name) return setError("Naam likhiye.")
-    if (taken.some((t) => t.toLowerCase() === name.toLowerCase()))
-      return setError(`"${name}" pehle se staff mein hai.`)
-    onSave(name, salary)
+    const name =
+      person?.name ?? String(f.get("name")).trim().replace(/\s+/g, " ")
+    if (!name) return setError(t("form.nameMissing"))
+    setBusy(true)
+    setError("")
+    try {
+      await run(() =>
+        write.saveParty(
+          {
+            name,
+            aliases: person?.aliases ?? [],
+            kind: "STAFF",
+            monthly_salary: salary,
+            is_active: person?.is_active ?? true,
+          },
+          person?.id
+        )
+      )
+      onDone()
+    } catch (err) {
+      setError(errorText(err, t, { name }))
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-5">
       <div>
         <Dialog.Title className="text-2xl font-normal">
-          {person ? person.name : "Naya staff"}
+          {person ? person.name : t("staff.new")}
         </Dialog.Title>
         <Dialog.Description className="mt-1 text-sm text-muted-foreground">
-          {person
-            ? "Mahine ki tankhwah badliye. Haazri aur advance entries se hi badalte hain."
-            : "Dukaan ke staff mein jodiye."}
+          {person ? t("staff.editBody") : t("staff.newBody")}
         </Dialog.Description>
       </div>
       {!person && (
         <label className="flex flex-col gap-2">
-          <span className="text-[13px] text-muted-foreground">Naam</span>
+          <span className="text-[13px] text-muted-foreground">
+            {t("form.name")}
+          </span>
           <input
             name="name"
             required
             maxLength={30}
             autoFocus
-            placeholder="Jaise Mohan"
+            placeholder={t("staff.namePlaceholder")}
             onChange={() => setError("")}
             className={FIELD}
             aria-invalid={!!error}
           />
-          {error && (
-            <span
-              role="alert"
-              className="px-1 text-[13px] text-[var(--red-ink)]"
-            >
-              {error}
-            </span>
-          )}
         </label>
       )}
       <label className="flex flex-col gap-2">
         <span className="text-[13px] text-muted-foreground">
-          Tankhwah (₹ / mahina)
+          {t("staff.salaryLabel")}
         </span>
         <input
           name="salary"
@@ -796,46 +857,77 @@ function StaffForm({
           required
           min={0}
           max={1000000}
-          defaultValue={person?.pay ?? 8000}
+          defaultValue={person?.monthly_salary ?? 8000}
           inputMode="numeric"
           autoFocus={!!person}
           className={FIELD}
         />
       </label>
-      <FormActions submit={person ? "Save karo" : "Jodo"} />
+      <FormError error={error} />
+      <FormActions
+        busy={busy}
+        submit={person ? t("form.save") : t("form.add")}
+      />
     </form>
   )
 }
 
-function AdvanceForm({
+/** Advance (STAFF_ADVANCE) or salary payment (SALARY_PAID): both come out of this month's salary. */
+function PayForm({
   person,
-  onSave,
+  kind,
+  onDone,
 }: {
-  person: Person
-  onSave: (val: number) => void
+  person: Party
+  kind: Money
+  onDone: () => void
 }) {
+  const { t } = useI18n()
+  const { run } = useShell()
   const [amount, setAmount] = React.useState("")
-  const left = Math.max(0, person.pay - person.advance)
+  const [error, setError] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+  const left = salaryLeft(person)
+  const earnedDue = Math.max(0, Math.min(left, person.staff_due?.due ?? 0))
   const val = Math.max(0, Math.round(Number(amount) || 0))
   const over = val > left
+  const advance = kind === "STAFF_ADVANCE"
 
-  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (val > 0 && !over) onSave(val)
+    if (val <= 0 || over) return
+    setBusy(true)
+    setError("")
+    try {
+      await run(() => write.addEntry({ kind, party: person.id, amount: val }))
+      onDone()
+    } catch (err) {
+      setError(errorText(err, t, { amount: inr(left) }))
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-5">
       <div>
         <Dialog.Title className="text-2xl font-normal">
-          {person.name} ko advance
+          {t(advance ? "staff.advanceTitle" : "staff.salaryTitle", {
+            name: person.name,
+          })}
         </Dialog.Title>
         <Dialog.Description className="mt-1 text-sm text-muted-foreground">
-          Tankhwah {person.salary}, ab tak {person.adv} advance liya.
+          {t("staff.payBody", {
+            salary: inr(person.monthly_salary),
+            advance: inr(person.staff_due?.advances),
+            paid: inr(person.staff_due?.salary_paid),
+          })}
         </Dialog.Description>
       </div>
       <label className="flex flex-col gap-2">
-        <span className="text-[13px] text-muted-foreground">Raqam</span>
+        <span className="text-[13px] text-muted-foreground">
+          {t("col.amount")}
+        </span>
         <span
           className={cn(
             FIELD,
@@ -861,6 +953,25 @@ function AdvanceForm({
             className="min-w-0 flex-1 [appearance:textfield] bg-transparent text-2xl font-light outline-none placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none"
           />
         </span>
+        <span
+          className={cn(
+            "grid transition-[grid-template-rows,opacity] duration-400 ease-drawer motion-reduce:transition-opacity",
+            !advance && earnedDue > 0
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0"
+          )}
+        >
+          <span className="min-h-0 overflow-hidden">
+            <button
+              type="button"
+              tabIndex={!advance && earnedDue > 0 ? 0 : -1}
+              onClick={() => setAmount(String(earnedDue))}
+              className="w-fit cursor-pointer rounded-full bg-raised px-4 py-2 text-[13px] transition-colors duration-150 hover:bg-background"
+            >
+              {t("staff.payEarned", { amount: inr(earnedDue) })}
+            </button>
+          </span>
+        </span>
       </label>
       <p
         role={over ? "alert" : undefined}
@@ -871,15 +982,19 @@ function AdvanceForm({
         )}
       >
         {over ? (
-          `Tankhwah mein sirf ${inr(left)} baaki hai, usse zyada advance nahi de sakte.`
+          t("error.EXCEEDS_SALARY", { amount: inr(left) })
         ) : (
           <>
-            <span>Baaki tankhwah</span>
+            <span>{t("staff.leftAfter")}</span>
             <span className="text-foreground">{inr(left - val)}</span>
           </>
         )}
       </p>
-      <FormActions submit="Advance likho" />
+      <FormError error={error} />
+      <FormActions
+        busy={busy}
+        submit={t(advance ? "staff.writeAdvance" : "staff.writeSalary")}
+      />
     </form>
   )
 }

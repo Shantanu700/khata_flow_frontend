@@ -1,280 +1,385 @@
 "use client"
 
 import * as React from "react"
-import { flushSync } from "react-dom"
-import { useGSAP } from "@gsap/react"
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query"
 
 import { BoloScreen } from "@/components/app/bolo"
 import { DashboardScreen } from "@/components/app/dashboard"
+import {
+  keys,
+  preload,
+  useMe,
+  useStrings,
+  useSummary,
+  write,
+} from "@/components/app/data"
 import { EntriesScreen } from "@/components/app/entries"
-import { ArrowIcon, BellIcon, GlobeIcon, MoonIcon, SunIcon } from "@/components/app/icons"
-import { KhataScreen, type Money, type NewCustomer } from "@/components/app/khata"
-import { DEMOS, LANGS, SCREEN_FLIP, SEED_ROWS, TITLES, deriveBook, type Product, type Row, type Screen } from "@/components/app/khata-data"
+import { I18nProvider, useI18n } from "@/components/app/i18n"
+import {
+  ArrowIcon,
+  BellIcon,
+  LogoMark,
+  MoonIcon,
+  SunIcon,
+} from "@/components/app/icons"
+import { KhataScreen } from "@/components/app/khata"
+import { SCREEN_FLIP, type Screen } from "@/components/app/khata-data"
+import { LanguagePicker } from "@/components/app/language-picker"
 import { LayoutContext, layoutFor } from "@/components/app/layout"
 import { LoginScreen } from "@/components/app/login"
 import { Rail } from "@/components/app/rail"
+import { ShellContext } from "@/components/app/shell"
 import { StaffScreen } from "@/components/app/staff"
-import { StockScreen, type NewProduct } from "@/components/app/stock"
+import { StockScreen } from "@/components/app/stock"
+import { useTheme } from "@/components/app/theme"
 import { useScreenMorph } from "@/components/app/use-screen-morph"
+import { ApiError, SIGNED_OUT, api, type Me } from "@/lib/api"
 import { reduceMotion } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
-// Lead Flow's theme wipe: fast off the left edge, settling slowly, y = ln(1 + 15t) / ln(16) sampled into linear().
-const WIPE_EASING = `linear(${Array.from({ length: 41 }, (_, i) => (Math.log1p((15 * i) / 40) / Math.log(16)).toFixed(4)).join(", ")})`
+// Language, session and the shop's words: what the app must not cache across screens' writes.
+const KEPT = new Set(["me", "strings", "languages"])
 
-export type Phase = "listening" | "working" | "done"
+const frame = () =>
+  new Promise<void>((done) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => done()))
+  )
 
 export function KhataApp() {
-  const [screen, setScreen] = React.useState<Screen | "login">("dash")
+  const [client] = React.useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 30_000,
+            refetchOnWindowFocus: false,
+            retry: (count, error) =>
+              !(error instanceof ApiError && error.status < 500) && count < 2,
+          },
+        },
+      })
+  )
+  return (
+    <QueryClientProvider client={client}>
+      <Gate />
+    </QueryClientProvider>
+  )
+}
+
+const GUEST_LANGUAGE = "kf-language"
+const readGuest = () => {
+  try {
+    return localStorage.getItem(GUEST_LANGUAGE) ?? "en-IN"
+  } catch {
+    return "en-IN"
+  }
+}
+
+/** Signed in → the app in the shop's language; signed out → sign-in and register in the language picked
+ *  there (English until one is picked), which a sign-in then saves to the shop. */
+function Gate() {
+  const client = useQueryClient()
+  const me = useMe()
+  const [guest, setGuest] = React.useState("en-IN")
+  const picked = React.useRef(false)
+  React.useEffect(() => queueMicrotask(() => setGuest(readGuest())), [])
+  const code = me.data?.shop.preferred_language ?? guest
+  const strings = useStrings(code)
+
+  React.useEffect(() => {
+    const signedOut = () => client.setQueryData(keys.me, null)
+    window.addEventListener(SIGNED_OUT, signedOut)
+    return () => window.removeEventListener(SIGNED_OUT, signedOut)
+  }, [client])
+
+  const pickGuest = async (next: string) => {
+    picked.current = true
+    await client.prefetchQuery({ queryKey: keys.strings(next), queryFn: () => api<Record<string, string>>(`i18n/${next}`) })
+    setGuest(next)
+    try {
+      localStorage.setItem(GUEST_LANGUAGE, next)
+    } catch {}
+  }
+
+  const signedIn = async (session: Me) => {
+    let current = session
+    if (picked.current && session.shop.preferred_language !== guest) current = await write.setLanguage(guest).catch(() => session)
+    client.setQueryData(keys.me, current)
+  }
+
+  if (me.isPending || !strings.data) return <Splash />
+  if (!me.data)
+    return (
+      <I18nProvider code={code} strings={strings.data}>
+        <LoginScreen onSignedIn={signedIn} onLanguage={pickGuest} />
+      </I18nProvider>
+    )
+  return (
+    <I18nProvider code={code} strings={strings.data}>
+      <App me={me.data} />
+    </I18nProvider>
+  )
+}
+
+function Splash() {
+  return (
+    <div className="kf-app grid h-dvh place-items-center bg-background">
+      <LogoMark size={60} ring="var(--canvas)" />
+    </div>
+  )
+}
+
+function App({ me }: { me: Me }) {
+  const client = useQueryClient()
+  const { t, locale, code } = useI18n()
+  const [screen, setScreen] = React.useState<Screen>("dash")
   const [nav, setNav] = React.useState<Screen>("dash")
   const [size, setSize] = React.useState({ w: 1400, h: 900 })
-  const [theme, setTheme] = React.useState<"dark" | "light">("dark")
-  const [lang, setLang] = React.useState(0)
-  const [customer, setCustomer] = React.useState("Sharma ji")
-  const [filter, setFilter] = React.useState("all")
-  const [extra, setExtra] = React.useState<Row[]>([])
-  const [added, setAdded] = React.useState<Record<string, Product>>({})
-  const [hired, setHired] = React.useState<Record<string, number>>({})
-  const [removed, setRemoved] = React.useState<string[]>([])
-  const [joined, setJoined] = React.useState<Record<string, string[] | null>>({})
-  const [here, setHere] = React.useState<string[]>([])
-  const [demo, setDemo] = React.useState(0)
-  const [phase, setPhase] = React.useState<Phase>("done")
-  const [step, setStep] = React.useState(5)
-  const [picked, setPicked] = React.useState<string | null>(null)
-  const timers = React.useRef<number[]>([])
+  const [theme, toggleTheme] = useTheme()
+  const [customerId, setCustomerId] = React.useState<number | null>(null)
+  const [said, setSaid] = React.useState<string | null>(null)
   const frameRef = React.useRef<HTMLDivElement>(null)
   const contentRef = React.useRef<HTMLDivElement>(null)
   const layout = React.useMemo(() => layoutFor(size.w, size.h), [size])
-  const { go: morphTo, freezeRolls, rollTexts } = useScreenMorph<Screen>({
+  const summary = useSummary()
+  const { go, freezeRolls, rollTexts } = useScreenMorph<Screen>({
     contentRef,
-    screen: screen === "login" ? "dash" : screen,
+    screen,
     setScreen,
     setNav,
     flipIds: SCREEN_FLIP,
+    load: (s) => preload(client, s),
   })
 
-  const book = React.useMemo(() => deriveBook(extra, customer, filter, added, hired, removed, joined, here), [extra, customer, filter, added, hired, removed, joined, here])
-
-  // In-place changes (a save, an undo, another customer) roll the figures they change, like Lead Flow's period roll.
-  // The tick forces a render even when nothing changed (e.g. the selected customer tapped again), so
-  // frozen copies always roll out and the real text is shown again.
-  const [rollTick, setRollTick] = React.useState(0)
-  const rolling = React.useRef(false)
-  const rolled = <A extends unknown[]>(fn: (...a: A) => void) => (...a: A) => {
-    if (!reduceMotion()) {
-      freezeRolls()
-      rolling.current = true
-      setRollTick((t) => t + 1)
-    }
-    fn(...a)
-  }
-  useGSAP(
-    () => {
-      if (!rolling.current) return
-      rolling.current = false
-      rollTexts()
+  const run = React.useCallback(
+    async <R,>(fn: () => Promise<R>) => {
+      if (!reduceMotion()) freezeRolls()
+      try {
+        const result = await fn()
+        await client.invalidateQueries({
+          predicate: (q) => !KEPT.has(String(q.queryKey[0])),
+        })
+        return result
+      } finally {
+        await frame()
+        rollTexts()
+      }
     },
-    { dependencies: [book, rollTick] }
+    [client, freezeRolls, rollTexts]
   )
 
-  React.useEffect(() => {
-    const root = document.documentElement
-    root.dataset.theme = theme
-    root.classList.toggle("dark", theme === "dark")
-  }, [theme])
-  React.useEffect(() => () => timers.current.forEach(window.clearTimeout), [])
-  const loggedOut = screen === "login"
   React.useLayoutEffect(() => {
     const el = frameRef.current
     if (!el) return
-    const ro = new ResizeObserver(([e]) => setSize({ w: Math.round(e.contentRect.width), h: Math.round(e.contentRect.height) }))
+    const ro = new ResizeObserver(([e]) =>
+      setSize({
+        w: Math.round(e.contentRect.width),
+        h: Math.round(e.contentRect.height),
+      })
+    )
     ro.observe(el)
     return () => ro.disconnect()
-  }, [loggedOut])
+  }, [])
 
-  const toggleTheme = () => {
-    const root = document.documentElement
-    const next = root.classList.contains("dark") ? "light" : "dark"
-    const apply = () => {
-      root.dataset.theme = next
-      root.classList.toggle("dark", next === "dark")
-      flushSync(() => setTheme(next))
-    }
-    if (reduceMotion() || !document.startViewTransition) return apply()
-    const t = document.startViewTransition(apply)
-    t.ready
-      .then(() =>
-        root.animate(
-          { clipPath: ["inset(0 100% 0 0)", "inset(0 0 0 0)"] },
-          { duration: 700, easing: WIPE_EASING, pseudoElement: "::view-transition-new(root)" }
-        )
-      )
-      .catch(() => {})
+  const signOut = async () => {
+    await fetch("/api/session", { method: "DELETE" })
+    client.clear()
+    client.setQueryData(keys.me, null)
   }
 
-  const addRow = (row: Omit<Row, "id">) => setExtra((rows) => [...rows, { ...row, id: SEED_ROWS.length + rows.length + 1 }])
-  const saveProduct = ({ name, unit, thr, opening }: NewProduct) => {
-    setAdded((p) => ({ ...p, [name]: { unit, thr } }))
-    setRemoved((r) => r.filter((n) => n !== name))
-    if (opening > 0) addRow({ d: 0, kind: "STOCK_IN", name, val: opening, rev: null, src: "Haath se" })
-  }
-  const deleteProduct = (name: string) => setRemoved((r) => [...r, name])
-  const saveStaff = (name: string, salary: number) => setHired((h) => ({ ...h, [name]: salary }))
-  const saveCustomer = ({ name, aliases, opening }: NewCustomer) => {
-    setJoined((j) => ({ ...j, [name]: aliases }))
-    if (opening > 0) addRow({ d: 0, kind: "CREDIT_GIVEN", name, val: opening, rev: null, src: "Haath se" })
-    setCustomer(name)
-  }
-  const deleteCustomer = (name: string) => {
-    setJoined((j) => ({ ...j, [name]: null }))
-    setCustomer(book.customers.find((c) => c.name !== name)?.name ?? "")
-  }
-  const record = (name: string, kind: Money, val: number) => addRow({ d: 0, kind, name, val, rev: null, src: "Haath se" })
-  const markPresent = (name: string) => setHere((h) => (h.includes(name) ? h.filter((n) => n !== name) : [...h, name]))
-  const giveAdvance = (name: string, val: number) => addRow({ d: 0, kind: "STAFF_ADVANCE", name, val, rev: null, src: "Haath se" })
-  const undo = (id: number) => addRow({ d: 0, kind: "REVERSAL", name: null, val: null, rev: id, src: "Haath se" })
-
-  const speak = (next: boolean) => {
-    if (phase === "listening" || phase === "working") return
-    timers.current.forEach(window.clearTimeout)
-    timers.current = []
-    setDemo((current) => (next ? (current + 1) % DEMOS.length : current))
-    setPhase("listening")
-    setStep(-1)
-    setPicked(null)
-    timers.current.push(window.setTimeout(() => (setPhase("working"), setStep(0)), 1400))
-    for (const i of [1, 2, 3, 4, 5]) {
-      timers.current.push(window.setTimeout(() => (setStep(i), setPhase(i === 5 ? "done" : "working")), 1400 + i * 380))
-    }
-  }
-  const pick = (name: string) => {
-    setPicked(name)
-    addRow({ d: 0, kind: "CREDIT_GIVEN", name, val: 300, rev: null, src: "Bola" })
+  const setLanguage = async (next: string) => {
+    if (next === code) return
+    if (!reduceMotion()) freezeRolls()
+    const [session] = await Promise.all([
+      write.setLanguage(next),
+      client.prefetchQuery({ queryKey: keys.strings(next) }),
+    ])
+    client.setQueryData(keys.me, session)
+    await frame()
+    rollTexts()
   }
 
-  if (screen === "login") return <LoginScreen onEnter={() => (setNav("dash"), setScreen("dash"))} />
+  const shell = React.useMemo(
+    () => ({
+      go,
+      run,
+      openCustomer: (id: number) => (setCustomerId(id), go("khata")),
+      customerId,
+      setCustomerId,
+      said,
+      setSaid,
+    }),
+    [go, run, customerId, said]
+  )
 
-  const current = LANGS[lang]
-  const [title, subtitle] = TITLES[current.id][screen]
-  const go = (to: Screen) => morphTo(to)
   const { phone, narrow, compact } = layout
+  const today = new Date()
+  const subtitle =
+    screen === "dash"
+      ? today.toLocaleDateString(locale, {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+        })
+      : t(`screen.${screen}.sub`)
+  const shop = me.shop.name
+  const lowCount = summary.data?.low_stock.length ?? 0
 
   return (
     <LayoutContext value={layout}>
-    <div
-      ref={frameRef}
-      className={cn(
-        "kf-app flex h-dvh gap-[10px] overflow-hidden p-[10px]",
-        phone && "flex-col-reverse pb-[max(10px,env(safe-area-inset-bottom))]"
-      )}
-    >
-      <Rail nav={nav} go={go} logOut={() => setScreen("login")} />
+      <ShellContext value={shell}>
+        <div
+          ref={frameRef}
+          className={cn(
+            "kf-app flex h-dvh gap-[10px] overflow-hidden p-[10px]",
+            phone &&
+              "flex-col-reverse pb-[max(10px,env(safe-area-inset-bottom))]"
+          )}
+        >
+          <Rail
+            nav={nav}
+            go={go}
+            logOut={signOut}
+            avatar={shop.charAt(0).toUpperCase()}
+          />
 
-      <main data-morph-root className="flex min-h-0 min-w-0 flex-1 flex-col gap-[10px]">
-        <header className="flex flex-wrap items-center gap-[10px]">
-          <div className={cn("min-w-0 pr-3", narrow ? "flex-1" : "min-w-[200px] flex-[0_0_auto]")}>
-            <h1 data-roll="title" className={cn("leading-none font-light tracking-[-0.03em]", phone ? "text-[34px]" : "text-5xl")}>
-              {title}
-            </h1>
-            {!phone && (
-              <p data-roll="sub" className="mt-1.5 text-sm text-muted-foreground">
-                {subtitle}
-              </p>
-            )}
-          </div>
-          <div
-            className={cn(
-              "flex items-center gap-[10px] rounded-full bg-white py-1.5 pr-1.5 pl-5 text-black",
-              narrow ? "order-last basis-full" : "min-w-[320px] flex-1"
-            )}
+          <main
+            data-morph-root
+            className="flex min-h-0 min-w-0 flex-1 flex-col gap-[10px]"
           >
-            {!phone && <span className="text-sm font-medium whitespace-nowrap">Gupta General Store</span>}
-            {!compact && <span className="rounded-full bg-[#e5e5e5] px-3.5 py-2 text-[13px] whitespace-nowrap">Som, 9 Nov</span>}
-            <input
-              aria-label="Likh ke bataiye"
-              placeholder={current.search}
-              className="h-10 min-w-0 flex-1 bg-transparent text-base text-black outline-none placeholder:text-black/50 sm:text-sm"
-            />
-            <button
-              type="button"
-              title="Bhejo"
-              aria-label="Bhejo"
-              onClick={() => go("bolo")}
-              className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black text-white"
+            <header className="flex flex-wrap items-center gap-[10px]">
+              <div
+                className={cn(
+                  "min-w-0 pr-3",
+                  narrow ? "flex-1" : "min-w-[200px] flex-[0_0_auto]"
+                )}
+              >
+                <h1
+                  data-roll="title"
+                  className={cn(
+                    "leading-none font-light tracking-[-0.03em]",
+                    phone ? "text-[34px]" : "text-5xl"
+                  )}
+                >
+                  {t(`screen.${screen}.title`)}
+                </h1>
+                {!phone && (
+                  <p
+                    data-roll="sub"
+                    className="mt-1.5 text-sm text-muted-foreground"
+                  >
+                    {subtitle}
+                  </p>
+                )}
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  const box = e.currentTarget.elements.namedItem(
+                    "say"
+                  ) as HTMLInputElement
+                  const text = box.value.trim()
+                  if (!text) return
+                  setSaid(text)
+                  box.value = ""
+                  go("bolo")
+                }}
+                className={cn(
+                  "flex items-center gap-[10px] rounded-full bg-white py-1.5 pr-1.5 pl-5 text-black",
+                  narrow ? "order-last basis-full" : "min-w-[320px] flex-1"
+                )}
+              >
+                {!phone && (
+                  <span className="max-w-[220px] truncate text-sm font-medium whitespace-nowrap">
+                    {shop}
+                  </span>
+                )}
+                {!compact && (
+                  <span className="rounded-full bg-[#e5e5e5] px-3.5 py-2 text-[13px] whitespace-nowrap">
+                    {today.toLocaleDateString(locale, {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </span>
+                )}
+                <input
+                  name="say"
+                  aria-label={t("header.sayLabel")}
+                  placeholder={t("header.sayPlaceholder")}
+                  maxLength={500}
+                  className="h-10 min-w-0 flex-1 bg-transparent text-base text-black outline-none placeholder:text-black/50 sm:text-sm"
+                />
+                <button
+                  type="submit"
+                  title={t("header.send")}
+                  aria-label={t("header.send")}
+                  className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black text-white"
+                >
+                  <ArrowIcon size={16} />
+                </button>
+              </form>
+              <LanguagePicker
+                value={code}
+                onChange={setLanguage}
+                compact={phone}
+              />
+              <button
+                type="button"
+                title={theme === "dark" ? t("header.light") : t("header.dark")}
+                aria-label={
+                  theme === "dark" ? t("header.light") : t("header.dark")
+                }
+                onClick={toggleTheme}
+                className="grid size-[52px] cursor-pointer place-items-center rounded-full bg-card"
+              >
+                {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+              </button>
+              <button
+                type="button"
+                title={
+                  lowCount
+                    ? t("header.lowStock", { count: lowCount })
+                    : t("header.noAlerts")
+                }
+                aria-label={
+                  lowCount
+                    ? t("header.lowStock", { count: lowCount })
+                    : t("header.noAlerts")
+                }
+                onClick={() => lowCount && go("stock")}
+                className="relative grid size-[52px] cursor-pointer place-items-center rounded-full bg-card"
+              >
+                <BellIcon />
+                {lowCount > 0 && (
+                  <span className="absolute top-3.5 right-[15px] size-2 rounded-full bg-red" />
+                )}
+              </button>
+            </header>
+
+            <div
+              ref={contentRef}
+              className={cn(
+                "@container/content min-h-0 flex-1 overflow-y-auto overscroll-contain",
+                // Half the corner buttons' size (44px on phones, 52px otherwise), so a button sitting in the
+                // content's corner is never clipped by this rounding.
+                phone ? "rounded-[22px]" : "rounded-[26px]"
+              )}
             >
-              <ArrowIcon size={16} />
-            </button>
-          </div>
-          <button
-            type="button"
-            title="Bhasha badlo"
-            aria-label={`Bhasha badlo: ${current.label}`}
-            onClick={() => setLang((l) => (l + 1) % LANGS.length)}
-            className={cn(
-              "flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-full bg-card text-sm",
-              phone ? "w-[52px]" : "px-[18px]"
-            )}
-          >
-            <GlobeIcon />
-            {!phone && current.label}
-          </button>
-          <button
-            type="button"
-            title={theme === "dark" ? "Light mode" : "Dark mode"}
-            aria-label={theme === "dark" ? "Light mode" : "Dark mode"}
-            onClick={toggleTheme}
-            className="grid size-[52px] cursor-pointer place-items-center rounded-full bg-card"
-          >
-            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-          </button>
-          <button
-            type="button"
-            title="Suchnayein"
-            aria-label="Suchnayein"
-            className="relative grid size-[52px] cursor-pointer place-items-center rounded-full bg-card"
-          >
-            <BellIcon />
-            <span className="absolute top-3.5 right-[15px] size-2 rounded-full bg-red" />
-          </button>
-        </header>
-
-        <div ref={contentRef} className={cn(
-            "@container/content min-h-0 flex-1 overflow-y-auto overscroll-contain",
-            // Half the corner buttons' size (44px on phones, 52px otherwise), so a button sitting in the
-            // content's corner is never clipped by this rounding.
-            phone ? "rounded-[22px]" : "rounded-[26px]"
-          )}>
-          {screen === "dash" && <DashboardScreen book={book} go={go} openCustomer={(n) => (setCustomer(n), go("khata"))} />}
-          {screen === "khata" && (
-            <KhataScreen
-              book={book}
-              pickCustomer={rolled(setCustomer)}
-              undo={rolled(undo)}
-              go={go}
-              saveCustomer={rolled(saveCustomer)}
-              deleteCustomer={rolled(deleteCustomer)}
-              record={rolled(record)}
-            />
-          )}
-          {screen === "stock" && <StockScreen book={book} saveProduct={rolled(saveProduct)} deleteProduct={rolled(deleteProduct)} />}
-          {screen === "staff" && <StaffScreen book={book} saveStaff={rolled(saveStaff)} markPresent={markPresent} giveAdvance={rolled(giveAdvance)} />}
-          {screen === "entries" && <EntriesScreen book={book} filter={filter} setFilter={rolled(setFilter)} undo={rolled(undo)} />}
-          {screen === "bolo" && (
-            <BoloScreen
-              book={book}
-              demo={demo}
-              phase={phase}
-              step={step}
-              picked={picked}
-              onSpeak={() => speak(false)}
-              onNext={() => speak(true)}
-              onPick={pick}
-            />
-          )}
+              {screen === "dash" && <DashboardScreen />}
+              {screen === "khata" && <KhataScreen />}
+              {screen === "stock" && <StockScreen />}
+              {screen === "staff" && <StaffScreen />}
+              {screen === "entries" && <EntriesScreen />}
+              {screen === "bolo" && <BoloScreen />}
+            </div>
+          </main>
         </div>
-      </main>
-    </div>
+      </ShellContext>
     </LayoutContext>
   )
 }

@@ -11,10 +11,14 @@ gsap.registerPlugin(useGSAP, Flip)
  *  glide to their new order after a sort, filter, search or page change (0.3s), new rows fade in,
  *  and a chip highlight (`data-chip-pill`) slides from the old chip to the new one.
  *  Call `capture()` (and `chipFrom(group)` for chips) in the handler, before the state change. */
-export function useListMotion(scope: React.RefObject<HTMLElement | null>, deps: unknown[]) {
+export function useListMotion(
+  scope: React.RefObject<HTMLElement | null>,
+  deps: unknown[]
+) {
   const rows = React.useRef<Flip.FlipState | null>(null)
   const chip = React.useRef<DOMRect | null>(null)
-  const rowEls = () => scope.current?.querySelectorAll<HTMLElement>('[data-flip-id^="row-"]') ?? []
+  const rowEls = () =>
+    scope.current?.querySelectorAll<HTMLElement>('[data-flip-id^="row-"]') ?? []
 
   useGSAP(
     () => {
@@ -28,15 +32,33 @@ export function useListMotion(scope: React.RefObject<HTMLElement | null>, deps: 
           targets: rowEls(),
           duration: 0.3,
           ease: "power3.inOut",
-          onEnter: (els) => gsap.fromTo(els, { opacity: 0 }, { opacity: 1, duration: 0.2, delay: 0.1, clearProps: "opacity" }),
+          onEnter: (els) =>
+            gsap.fromTo(
+              els,
+              { opacity: 0 },
+              { opacity: 1, duration: 0.2, delay: 0.1, clearProps: "opacity" }
+            ),
         })
       const pill = scope.current?.querySelector<HTMLElement>("[data-chip-pill]")
       if (old && pill) {
         const now = pill.getBoundingClientRect()
         gsap.fromTo(
           pill,
-          { x: old.left - now.left, y: old.top - now.top, width: old.width, height: old.height },
-          { x: 0, y: 0, width: now.width, height: now.height, duration: 0.3, ease: "power3.inOut", clearProps: "transform,width,height" }
+          {
+            x: old.left - now.left,
+            y: old.top - now.top,
+            width: old.width,
+            height: old.height,
+          },
+          {
+            x: 0,
+            y: 0,
+            width: now.width,
+            height: now.height,
+            duration: 0.3,
+            ease: "power3.inOut",
+            clearProps: "transform,width,height",
+          }
         )
       }
     },
@@ -48,7 +70,9 @@ export function useListMotion(scope: React.RefObject<HTMLElement | null>, deps: 
       rows.current = Flip.getState(rowEls())
     },
     chipFrom: (group: Element | null) => {
-      chip.current = group?.querySelector("[data-chip-pill]")?.getBoundingClientRect() ?? null
+      chip.current =
+        group?.querySelector("[data-chip-pill]")?.getBoundingClientRect() ??
+        null
     },
   }
 }

@@ -26,6 +26,7 @@ export function useScreenMorph<S extends string>({
   setScreen,
   setNav,
   flipIds,
+  load,
 }: {
   contentRef: React.RefObject<HTMLDivElement | null>
   screen: S
@@ -33,17 +34,23 @@ export function useScreenMorph<S extends string>({
   setNav: (s: S) => void
   /** The Flip ids each screen renders. */
   flipIds: Record<S, string[]>
+  /** Fetch what screen `s` shows; it runs during the exit so the morph lands on real figures. */
+  load?: (s: S) => Promise<unknown>
 }) {
   const flipState = React.useRef<Flip.FlipState | null>(null)
   const prevIds = React.useRef<Set<string>>(new Set())
-  const ghosts = React.useRef<Map<string, { node: HTMLElement; text: string }>>(new Map())
+  const ghosts = React.useRef<Map<string, { node: HTMLElement; text: string }>>(
+    new Map()
+  )
   const switching = React.useRef(false)
   React.useEffect(() => {
     const g = ghosts.current
     return () => g.forEach((x) => x.node.remove())
   }, [])
 
-  const all = (sel: string) => [...(contentRef.current?.querySelectorAll<HTMLElement>(sel) ?? [])]
+  const all = (sel: string) => [
+    ...(contentRef.current?.querySelectorAll<HTMLElement>(sel) ?? []),
+  ]
   const idOf = (el: Element) => (el as HTMLElement).dataset.flipId ?? ""
 
   /** Leaves inside the shapes that belong to one screen only: neither morphing nor rolling. */
@@ -52,7 +59,8 @@ export function useScreenMorph<S extends string>({
     const walk = (el: Element) => {
       for (const c of el.children) {
         if (c.getAttribute("aria-hidden") === "true") continue
-        if (c.hasAttribute("data-flip-id") || c.hasAttribute("data-roll")) continue
+        if (c.hasAttribute("data-flip-id") || c.hasAttribute("data-roll"))
+          continue
         if (c.querySelector("[data-flip-id],[data-roll]")) walk(c)
         else out.push(c)
       }
@@ -61,7 +69,10 @@ export function useScreenMorph<S extends string>({
     return out
   }
 
-  const panels = () => all("[data-panel]").filter((el) => !el.parentElement?.closest("[data-panel]"))
+  const panels = () =>
+    all("[data-panel]").filter(
+      (el) => !el.parentElement?.closest("[data-panel]")
+    )
 
   /** Toward the edge of the content nearest the element: side panels travel sideways, others vertically. */
   const awayFrom = (el: Element, dist = 32) => {
@@ -69,7 +80,9 @@ export function useScreenMorph<S extends string>({
     const r = el.getBoundingClientRect()
     const dx = (r.left + r.width / 2 - (box.left + box.width / 2)) / box.width
     const dy = (r.top + r.height / 2 - (box.top + box.height / 2)) / box.height
-    return Math.abs(dx) > Math.abs(dy) ? { x: Math.sign(dx) * dist, y: 0 } : { x: 0, y: (Math.sign(dy) || 1) * dist }
+    return Math.abs(dx) > Math.abs(dy)
+      ? { x: Math.sign(dx) * dist, y: 0 }
+      : { x: 0, y: (Math.sign(dy) || 1) * dist }
   }
 
   /** Copy each rolling text to a fixed-position ghost so it can roll out after React replaces it. */
@@ -77,7 +90,8 @@ export function useScreenMorph<S extends string>({
     ghosts.current.forEach((g) => g.node.remove())
     ghosts.current.clear()
     document.querySelectorAll<HTMLElement>("[data-roll]").forEach((el) => {
-      if (!contentRef.current?.closest("[data-morph-root]")?.contains(el)) return
+      if (!contentRef.current?.closest("[data-morph-root]")?.contains(el))
+        return
       const r = el.getBoundingClientRect()
       if (!r.width || !r.height) return
       const cs = getComputedStyle(el)
@@ -94,7 +108,8 @@ export function useScreenMorph<S extends string>({
         zIndex: "30",
         overflow: "hidden",
         background: "transparent",
-        whiteSpace: r.height > parseFloat(cs.lineHeight) * 1.5 ? "normal" : "nowrap",
+        whiteSpace:
+          r.height > parseFloat(cs.lineHeight) * 1.5 ? "normal" : "nowrap",
         color: cs.color,
         fontFamily: cs.fontFamily,
         fontSize: cs.fontSize,
@@ -121,10 +136,17 @@ export function useScreenMorph<S extends string>({
       if (!g) return
       ghosts.current.delete(key)
       const remove = () => g.node.remove()
-      gsap.to(g.node.firstElementChild, { yPercent: -100, duration: 0.45, ease: "power3.inOut", onComplete: remove, onInterrupt: remove })
+      gsap.to(g.node.firstElementChild, {
+        yPercent: -100,
+        duration: 0.45,
+        ease: "power3.inOut",
+        onComplete: remove,
+        onInterrupt: remove,
+      })
     }
     document.querySelectorAll<HTMLElement>("[data-roll]").forEach((el) => {
-      if (!contentRef.current?.closest("[data-morph-root]")?.contains(el)) return
+      if (!contentRef.current?.closest("[data-morph-root]")?.contains(el))
+        return
       el.style.opacity = ""
       const key = el.dataset.roll!
       const g = ghosts.current.get(key)
@@ -137,7 +159,13 @@ export function useScreenMorph<S extends string>({
       gsap.fromTo(
         el,
         { yPercent: 100, clipPath: "inset(0% 0% 100% 0%)" },
-        { yPercent: 0, clipPath: "inset(0% 0% 0% 0%)", duration: 0.45, ease: "power3.inOut", clearProps: "transform,clipPath" }
+        {
+          yPercent: 0,
+          clipPath: "inset(0% 0% 0% 0%)",
+          duration: 0.45,
+          ease: "power3.inOut",
+          clearProps: "transform,clipPath",
+        }
       )
     })
     ;[...ghosts.current.keys()].forEach(dropGhost)
@@ -153,11 +181,18 @@ export function useScreenMorph<S extends string>({
       flipState.current = null
 
       const fadeIn = (targets: gsap.TweenTarget, vars: gsap.TweenVars) =>
-        gsap.fromTo(targets, { opacity: 0, transition: "none" }, { opacity: 1, clearProps: "opacity,transition", ...vars })
+        gsap.fromTo(
+          targets,
+          { opacity: 0, transition: "none" },
+          { opacity: 1, clearProps: "opacity,transition", ...vars }
+        )
       const slideIn = (els: Element[], delay: number) =>
         els.forEach((el, i) => {
           const pos = getComputedStyle(el).position
-          gsap.set(el, { zIndex: 2, position: pos === "static" ? "relative" : pos })
+          gsap.set(el, {
+            zIndex: 2,
+            position: pos === "static" ? "relative" : pos,
+          })
           gsap.fromTo(
             el,
             { ...awayFrom(el), opacity: 0, transition: "none" },
@@ -168,7 +203,9 @@ export function useScreenMorph<S extends string>({
               duration: 0.5,
               delay: delay + i * 0.04,
               ease: "power3.out",
-              clearProps: "transform,opacity,transition,zIndex" + (pos === "static" ? ",position" : ""),
+              clearProps:
+                "transform,opacity,transition,zIndex" +
+                (pos === "static" ? ",position" : ""),
             }
           )
         })
@@ -182,20 +219,39 @@ export function useScreenMorph<S extends string>({
 
       if (!from) {
         fadeIn(shapes, { duration: 0.4 })
-        fadeIn(shapeDetails(shapes), { duration: 0.35, delay: 0.1, ease: "power2.out" })
-        slideIn(panels().filter((p) => !p.hasAttribute("data-shape")), 0.05)
+        fadeIn(shapeDetails(shapes), {
+          duration: 0.35,
+          delay: 0.1,
+          ease: "power2.out",
+        })
+        slideIn(
+          panels().filter((p) => !p.hasAttribute("data-shape")),
+          0.05
+        )
       } else {
         const flips = all("[data-flip-id]")
         const kept = flips.filter((el) => prevIds.current.has(idOf(el)))
         const keptSet = new Set(kept)
-        Flip.from(from, { targets: kept, nested: true, duration: 0.55, ease: "power3.inOut" })
+        Flip.from(from, {
+          targets: kept,
+          nested: true,
+          duration: 0.55,
+          ease: "power3.inOut",
+        })
         const newPanels = panels().filter((el) => !keptSet.has(el))
         const newSet = new Set(newPanels)
         fadeIn(
           [
-            ...flips.filter((el) => !keptSet.has(el) && !newSet.has(el) && ![...newSet].some((p) => p.contains(el))),
+            ...flips.filter(
+              (el) =>
+                !keptSet.has(el) &&
+                !newSet.has(el) &&
+                ![...newSet].some((p) => p.contains(el))
+            ),
             ...shapeDetails(shapes.filter((s) => keptSet.has(s))),
-            ...all("[data-swap]").filter((el) => ![...newSet].some((p) => p.contains(el))),
+            ...all("[data-swap]").filter(
+              (el) => ![...newSet].some((p) => p.contains(el))
+            ),
           ],
           { duration: 0.35, delay: 0.3, ease: "power2.out" }
         )
@@ -206,7 +262,14 @@ export function useScreenMorph<S extends string>({
         gsap.fromTo(
           bars,
           { clipPath: "inset(100% 0 0 0)" },
-          { clipPath: "inset(0% 0 0 0)", duration: 0.6, stagger: 0.04, delay: from ? 0.45 : 0.15, ease: "power3.out", clearProps: "clipPath" }
+          {
+            clipPath: "inset(0% 0 0 0)",
+            duration: 0.6,
+            stagger: 0.04,
+            delay: from ? 0.45 : 0.15,
+            ease: "power3.out",
+            clearProps: "clipPath",
+          }
         )
     },
     { scope: contentRef, dependencies: [screen], revertOnUpdate: true }
@@ -217,8 +280,10 @@ export function useScreenMorph<S extends string>({
     contextSafe(() => {
       if (next === screen || switching.current) return
       setNav(next)
+      const loaded = Promise.resolve(load?.(next)).catch(() => undefined)
       const grid = contentRef.current
-      if (reduceMotion() || !grid) return setScreen(next)
+      if (reduceMotion() || !grid)
+        return void loaded.then(() => setScreen(next))
       switching.current = true
       gsap.set(grid, { overflow: "hidden" })
 
@@ -228,9 +293,15 @@ export function useScreenMorph<S extends string>({
       const shapes = all("[data-shape]").filter((el) => nextIds.has(idOf(el)))
       const leavingPanels = panels().filter((el) => !nextIds.has(idOf(el)))
       const leaving = [
-        ...flips.filter((el) => !nextIds.has(idOf(el)) && !leavingPanels.some((p) => p === el || p.contains(el))),
+        ...flips.filter(
+          (el) =>
+            !nextIds.has(idOf(el)) &&
+            !leavingPanels.some((p) => p === el || p.contains(el))
+        ),
         ...shapeDetails(shapes),
-        ...all("[data-swap]").filter((el) => !leavingPanels.some((p) => p.contains(el))),
+        ...all("[data-swap]").filter(
+          (el) => !leavingPanels.some((p) => p.contains(el))
+        ),
       ]
       freezeRolls()
 
@@ -238,13 +309,21 @@ export function useScreenMorph<S extends string>({
         onComplete: () => {
           flipState.current = Flip.getState(kept)
           prevIds.current = new Set(kept.map(idOf))
-          switching.current = false
-          grid.scrollTop = 0
-          setScreen(next)
+          loaded.then(() => {
+            switching.current = false
+            grid.scrollTop = 0
+            setScreen(next)
+          })
         },
       })
       tl.to(leaving, { opacity: 0, duration: 0.2, transition: "none" }, 0)
-      leavingPanels.forEach((el) => tl.to(el, { ...awayFrom(el), opacity: 0, duration: 0.25, ease: "power2.in" }, 0))
+      leavingPanels.forEach((el) =>
+        tl.to(
+          el,
+          { ...awayFrom(el), opacity: 0, duration: 0.25, ease: "power2.in" },
+          0
+        )
+      )
     })()
 
   return { go, freezeRolls, rollTexts, contextSafe }

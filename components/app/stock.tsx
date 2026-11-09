@@ -4,23 +4,29 @@ import * as React from "react"
 import { Dialog, Select } from "radix-ui"
 
 import {
+  SIZE,
+  useDebounced,
+  useProductNames,
+  useProducts,
+  useStockMoves,
+  useSummary,
+  write,
+} from "@/components/app/data"
+import {
   DateRange,
-  FULL,
   rangeLabel,
+  rangeParams,
   type Range,
 } from "@/components/app/date-range"
+import { errorText, qty, useI18n } from "@/components/app/i18n"
 import {
   BoxIcon,
   ChevronIcon,
   PencilIcon,
   TrashIcon,
 } from "@/components/app/icons"
-import {
-  UNITS,
-  type Book,
-  type EntryView,
-  type Unit,
-} from "@/components/app/khata-data"
+import { UNITS, entryView, type Unit } from "@/components/app/khata-data"
+import { useLayout } from "@/components/app/layout"
 import {
   AddButton,
   CornerPager,
@@ -28,97 +34,92 @@ import {
   FilterButton,
   FormActions,
   FormDialog,
+  FormError,
   LedgerCard,
+  LoadError,
   NotchSearch,
-  PAGE,
   Pager,
   SearchField,
   ViewToggle,
-  paginate,
+  pagesOf,
   type View,
 } from "@/components/app/ledger"
-import { useLayout } from "@/components/app/layout"
+import { useListMotion } from "@/components/app/list-motion"
 import { CornerButton, Dot } from "@/components/app/parts"
+import { useShell } from "@/components/app/shell"
 import { Segmented } from "@/components/segmented"
+import type { Product } from "@/lib/api"
 import { cn } from "@/lib/utils"
-
-export type NewProduct = {
-  name: string
-  unit: Unit
-  thr: number
-  opening: number
-}
 
 const COLS =
   "grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_110px] gap-3"
-const ALL = "all"
-
-type Sort = "naye" | "maatra" | "naam"
-const SORTS: { value: Sort; label: string }[] = [
-  { value: "naye", label: "Naye" },
-  { value: "maatra", label: "Maatra" },
-  { value: "naam", label: "Naam" },
-]
-const ORDER: Record<Sort, ((a: EntryView, b: EntryView) => number) | null> = {
-  naye: null,
-  maatra: (a, b) => b.qty - a.qty,
-  naam: (a, b) => (a.name ?? "").localeCompare(b.name ?? ""),
-}
-
-type Show = "sab" | "kam" | "theek"
-const SHOW: { value: Show; label: string }[] = [
-  { value: "sab", label: "Sab" },
-  { value: "kam", label: "Kam hai" },
-  { value: "theek", label: "Theek hai" },
-]
-const CARDS = 8
 const PCOLS =
   "grid grid-cols-[minmax(0,1.6fr)_90px_90px_minmax(0,1.4fr)_36px] gap-4"
+const ALL = "all"
 
-type Item = Book["products"][number]
+type Sort = "-id" | "-quantity" | "product__name"
+const SORTS: { value: Sort; key: string }[] = [
+  { value: "-id", key: "sort.newest" },
+  { value: "-quantity", key: "sort.quantity" },
+  { value: "product__name", key: "sort.name" },
+]
 
-export function StockScreen({
-  book,
-  saveProduct,
-  deleteProduct,
-}: {
-  book: Book
-  saveProduct: (p: NewProduct) => void
-  deleteProduct: (name: string) => void
-}) {
+type Show = "sab" | "kam" | "theek"
+const SHOW: { value: Show; key: string }[] = [
+  { value: "sab", key: "stock.show.all" },
+  { value: "kam", key: "stock.show.low" },
+  { value: "theek", key: "stock.show.ok" },
+]
+
+/** How full the bar is: the threshold sits at half. */
+const fill = (p: Product) =>
+  Math.min(100, (p.stock_level / Math.max(1, p.low_stock_threshold * 2)) * 100)
+
+export function StockScreen() {
+  const { t } = useI18n()
   const [query, setQuery] = React.useState("")
   const [show, setShow] = React.useState<Show>("sab")
   const [page, setPage] = React.useState(1)
   const [view, setView] = React.useState<View>("cards")
-  const [editing, setEditing] = React.useState<Item | "new" | null>(null)
+  const [editing, setEditing] = React.useState<Product | "new" | null>(null)
   const { phone } = useLayout()
-  const q = query.trim().toLowerCase()
-  const list = book.products.filter(
-    (p) =>
-      (show === "sab" || (show === "kam") === p.low) &&
-      (!q || p.name.toLowerCase().includes(q))
-  )
-  const size = view === "cards" ? CARDS : PAGE
-  const { pages, current, shown } = paginate(list, page, size)
+  const q = useDebounced(query.trim())
+  const size = view === "cards" ? SIZE.cards : SIZE.table
+  const list = useProducts({
+    q: q || undefined,
+    low: show === "sab" ? undefined : show === "kam",
+    page,
+    page_size: size,
+  })
+  const all = useProducts({ page: 1, page_size: 1 })
+  const summary = useSummary()
+  const shown = list.data?.results ?? []
+  const count = list.data?.count ?? 0
+  const pages = pagesOf(count, size)
+  const showOptions = SHOW.map((s) => ({ value: s.value, label: t(s.key) }))
+  const status = (p: Product) => (p.is_low ? t("stock.low") : t("stock.ok"))
 
   return (
     <div className="flex flex-col gap-[10px]">
       <LedgerCard
         flip="main"
         className={cn(!phone && "pb-[92px]")}
-        title="Saamaan"
-        sub={`${book.products.length} cheezein · ${book.lowStock.length} kam`}
+        title={t("stock.title")}
+        sub={t("stock.sub", {
+          count: all.data?.count ?? 0,
+          low: summary.data?.low_stock.length ?? 0,
+        })}
         controls={
           <>
             <SearchField
               value={query}
               onChange={(v) => (setQuery(v), setPage(1))}
-              placeholder="Saamaan dhoondo"
-              label="Saamaan dhoondo"
+              placeholder={t("stock.search")}
+              label={t("stock.search")}
             />
             <Segmented
-              label="Dikhao"
-              options={SHOW}
+              label={t("stock.showLabel")}
+              options={showOptions}
               value={show}
               onChange={(v) => (setShow(v), setPage(1))}
               className="h-[52px] bg-card p-1.5"
@@ -127,7 +128,10 @@ export function StockScreen({
               value={view}
               onChange={(v) => (setView(v), setPage(1))}
             />
-            <AddButton label="Naya saamaan" onClick={() => setEditing("new")} />
+            <AddButton
+              label={t("stock.new")}
+              onClick={() => setEditing("new")}
+            />
           </>
         }
         compactControls={
@@ -135,13 +139,13 @@ export function StockScreen({
             <NotchSearch
               value={query}
               onChange={(v) => (setQuery(v), setPage(1))}
-              placeholder="Saamaan dhoondo"
-              label="Saamaan dhoondo"
+              placeholder={t("stock.search")}
+              label={t("stock.search")}
             />
             <FilterButton active={show !== "sab"}>
               <Segmented
-                label="Dikhao"
-                options={SHOW}
+                label={t("stock.showLabel")}
+                options={showOptions}
                 value={show}
                 onChange={(v) => (setShow(v), setPage(1))}
                 className="h-[52px] bg-card p-1.5"
@@ -153,8 +157,11 @@ export function StockScreen({
                 className="w-fit"
               />
             </FilterButton>
-            {phone && <Pager page={current} pages={pages} onPage={setPage} />}
-            <AddButton label="Naya saamaan" onClick={() => setEditing("new")} />
+            {phone && <Pager page={page} pages={pages} onPage={setPage} />}
+            <AddButton
+              label={t("stock.new")}
+              onClick={() => setEditing("new")}
+            />
           </>
         }
         toolbar={null}
@@ -163,7 +170,7 @@ export function StockScreen({
           <div className="flex flex-col gap-1.5">
             {shown.map((p) => (
               <div
-                key={p.name}
+                key={p.id}
                 className="flex items-center gap-3 rounded-[18px] bg-background py-3 pr-2.5 pl-4"
               >
                 <span className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -172,37 +179,28 @@ export function StockScreen({
                       {p.name}
                     </span>
                     <span className="text-xl font-light tabular-nums">
-                      {p.level}
+                      {qty(p.stock_level)}
                     </span>
                   </span>
-                  <span
-                    role="img"
-                    aria-label={`${p.level} bache, seema ${p.thr}`}
-                    className="h-1.5 overflow-hidden rounded-full bg-raised"
-                  >
-                    <span
-                      className="block h-full rounded-full"
-                      style={{
-                        width: `${p.pct}%`,
-                        background: p.low ? "#ef4949" : "#6ba600",
-                      }}
-                    />
-                  </span>
+                  <Meter p={p} className="h-1.5 bg-raised" />
                   <span className="flex justify-between text-xs text-muted-foreground">
                     <span>
-                      {p.unit} · seema {p.thr}
+                      {t(`unit.${p.unit}`)} ·{" "}
+                      {t("stock.threshold", {
+                        value: qty(p.low_stock_threshold),
+                      })}
                     </span>
                     <span
-                      style={{ color: p.low ? "var(--red-ink)" : undefined }}
+                      style={{ color: p.is_low ? "var(--red-ink)" : undefined }}
                     >
-                      {p.low ? "Kam hai" : "Theek hai"}
+                      {status(p)}
                     </span>
                   </span>
                 </span>
                 <button
                   type="button"
-                  title={`${p.name} badlo`}
-                  aria-label={`${p.name} badlo`}
+                  title={t("stock.edit", { name: p.name })}
+                  aria-label={t("stock.edit", { name: p.name })}
                   onClick={() => setEditing(p)}
                   className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-raised"
                 >
@@ -219,15 +217,15 @@ export function StockScreen({
                 "min-w-[620px] pr-2.5 pl-4 text-xs font-medium text-muted-foreground"
               )}
             >
-              <span>Saamaan</span>
-              <span className="text-right">Bache</span>
-              <span className="text-right">Seema</span>
-              <span>Haalat</span>
+              <span>{t("col.item")}</span>
+              <span className="text-right">{t("stock.col.left")}</span>
+              <span className="text-right">{t("stock.col.threshold")}</span>
+              <span>{t("stock.col.status")}</span>
               <span />
             </div>
             {shown.map((p) => (
               <div
-                key={p.name}
+                key={p.id}
                 className={cn(
                   PCOLS,
                   "group min-w-[620px] items-center rounded-[18px] bg-background py-3 pr-2.5 pl-4 transition-colors duration-150 hover:bg-raised"
@@ -236,46 +234,37 @@ export function StockScreen({
                 <span className="flex min-w-0 flex-col gap-px">
                   <span className="truncate text-sm font-medium">{p.name}</span>
                   <span className="text-xs text-muted-foreground">
-                    {p.unit}
+                    {t(`unit.${p.unit}`)}
                   </span>
                 </span>
                 <span className="text-right text-xl font-light tabular-nums">
-                  {p.level}
+                  {qty(p.stock_level)}
                 </span>
                 <span className="text-right text-sm text-muted-foreground tabular-nums">
-                  {p.thr}
+                  {qty(p.low_stock_threshold)}
                 </span>
                 <span className="flex items-center gap-3">
+                  <Meter
+                    p={p}
+                    className="h-2 flex-1 bg-raised group-hover:bg-card"
+                  />
                   <span
-                    role="img"
-                    aria-label={`${p.level} bache, seema ${p.thr}`}
-                    className="h-2 flex-1 overflow-hidden rounded-full bg-raised group-hover:bg-card"
-                  >
-                    <span
-                      className="block h-full rounded-full"
-                      style={{
-                        width: `${p.pct}%`,
-                        background: p.low ? "#ef4949" : "#6ba600",
-                      }}
-                    />
-                  </span>
-                  <span
-                    className="w-16 text-xs"
+                    className="w-20 text-xs"
                     style={{
-                      color: p.low
+                      color: p.is_low
                         ? "var(--red-ink)"
                         : "var(--muted-foreground)",
                     }}
                   >
-                    {p.low ? "Kam hai" : "Theek hai"}
+                    {status(p)}
                   </span>
                 </span>
                 <button
                   type="button"
-                  title={`${p.name} badlo`}
-                  aria-label={`${p.name} badlo`}
+                  title={t("stock.edit", { name: p.name })}
+                  aria-label={t("stock.edit", { name: p.name })}
                   onClick={() => setEditing(p)}
-                  className="grid size-9 cursor-pointer place-items-center rounded-full bg-raised group-hover:bg-card"
+                  className="grid size-9 cursor-pointer place-items-center rounded-full bg-raised group-hover:bg-card coarse:size-11"
                 >
                   <PencilIcon size={14} />
                 </button>
@@ -286,47 +275,43 @@ export function StockScreen({
           <div className="grid grid-cols-1 gap-[10px] @min-[480px]/content:grid-cols-2 @min-[1000px]/content:grid-cols-4">
             {shown.map((p) => (
               <div
-                key={p.name}
+                key={p.id}
                 className="relative flex min-h-[200px] flex-col gap-[18px] rounded-[32px] bg-raised p-6"
               >
                 <div className="pr-24">
-                  <p className="text-lg">{p.name}</p>
-                  <p className="text-[13px] text-muted-foreground">{p.unit}</p>
+                  <p className="truncate text-lg">{p.name}</p>
+                  <p className="text-[13px] text-muted-foreground">
+                    {t(`unit.${p.unit}`)}
+                  </p>
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span
-                    data-roll={`level-${p.name}`}
+                    data-roll={`level-${p.id}`}
                     className="text-[64px] leading-none font-light tracking-[-0.03em]"
                   >
-                    {p.level}
+                    {qty(p.stock_level)}
                   </span>
-                  <span className="text-sm text-muted-foreground">bache</span>
+                  <span className="text-sm text-muted-foreground">
+                    {t("stock.left")}
+                  </span>
                 </div>
                 <div className="mt-auto flex flex-col gap-2">
-                  <div
-                    role="img"
-                    aria-label={`${p.level} bache, seema ${p.thr}`}
-                    className="h-2 overflow-hidden rounded-full bg-card"
-                  >
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${p.pct}%`,
-                        background: p.low ? "#ef4949" : "#6ba600",
-                      }}
-                    />
-                  </div>
+                  <Meter p={p} className="h-2 bg-card" />
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Seema {p.thr}</span>
+                    <span>
+                      {t("stock.threshold", {
+                        value: qty(p.low_stock_threshold),
+                      })}
+                    </span>
                     <span
-                      style={{ color: p.low ? "var(--red-ink)" : undefined }}
+                      style={{ color: p.is_low ? "var(--red-ink)" : undefined }}
                     >
-                      {p.low ? "Kam hai" : "Theek hai"}
+                      {status(p)}
                     </span>
                   </div>
                 </div>
                 <CornerButton
-                  title={`${p.name} badlo`}
+                  title={t("stock.edit", { name: p.name })}
                   bg="var(--card)"
                   className="bg-raised"
                   onClick={() => setEditing(p)}
@@ -337,204 +322,267 @@ export function StockScreen({
             ))}
           </div>
         )}
-        {list.length === 0 && (
+        {list.isError && <LoadError onRetry={() => list.refetch()} />}
+        {list.data && count === 0 && (
           <p className="px-1 py-7 text-sm text-muted-foreground">
-            Koi saamaan nahi mila.
+            {t("stock.none")}
           </p>
         )}
         <CornerPager
           flip="main"
-          total={list.length}
+          total={count}
           size={size}
-          page={current}
+          page={page}
           pages={pages}
           onPage={setPage}
         />
       </LedgerCard>
-      <ProductDialog
-        editing={editing}
-        onClose={() => setEditing(null)}
-        taken={book.products.map((p) => p.name)}
-        onSave={saveProduct}
-        onDelete={deleteProduct}
-      />
-      <StockLedger book={book} />
+      <FormDialog open={editing !== null} onClose={() => setEditing(null)}>
+        {editing !== null && (
+          <ProductForm
+            key={editing === "new" ? "" : editing.id}
+            item={editing === "new" ? null : editing}
+            onDone={() => setEditing(null)}
+          />
+        )}
+      </FormDialog>
+      <StockLedger />
     </div>
   )
 }
 
-function StockLedger({ book }: { book: Book }) {
-  const [sort, setSort] = React.useState<Sort>("naye")
+function Meter({ p, className }: { p: Product; className: string }) {
+  const { t } = useI18n()
+  return (
+    <span
+      role="img"
+      aria-label={t("stock.meter", {
+        level: qty(p.stock_level),
+        threshold: qty(p.low_stock_threshold),
+      })}
+      className={cn("block overflow-hidden rounded-full", className)}
+    >
+      <span
+        className="block h-full rounded-full"
+        style={{
+          width: `${fill(p)}%`,
+          background: p.is_low ? "#ef4949" : "#6ba600",
+        }}
+      />
+    </span>
+  )
+}
+
+function StockLedger() {
+  const { t, locale } = useI18n()
+  const [sort, setSort] = React.useState<Sort>("-id")
   const [query, setQuery] = React.useState("")
   const [page, setPage] = React.useState(1)
-  const [range, setRange] = React.useState<Range>(FULL)
+  const [range, setRange] = React.useState<Range>(null)
   const [product, setProduct] = React.useState(ALL)
   const { phone } = useLayout()
-  const q = query.trim().toLowerCase()
-  const rows = book.stockMoves
-    .filter(
-      (e) =>
-        e.d <= range.from &&
-        e.d >= range.to &&
-        (product === ALL || e.name === product)
-    )
-    .filter(
-      (e) =>
-        !q || `${e.name} ${e.idLabel} ${e.kindLabel}`.toLowerCase().includes(q)
-    )
-  const order = ORDER[sort]
-  if (order) rows.sort(order)
-  const { pages, current, shown } = paginate(rows, page)
+  const ref = React.useRef<HTMLElement>(null)
+  const q = useDebounced(query.trim())
+  const names = useProductNames()
+  const list = useStockMoves({
+    q: q || undefined,
+    product: product === ALL ? undefined : Number(product),
+    ordering: sort,
+    page,
+    ...rangeParams(range),
+  })
+  const rows = (list.data?.results ?? []).map((e) => entryView(e, t, locale))
+  const count = list.data?.count ?? 0
+  const pages = pagesOf(count, SIZE.table)
+  const { capture } = useListMotion(ref, [rows.map((e) => e.id).join()])
   const reset =
-    <T,>(set: (v: T) => void) =>
-    (v: T) => (set(v), setPage(1))
+    <V,>(set: (v: V) => void) =>
+    (v: V) => (capture(), set(v), setPage(1))
+  const toPage = (p: number) => (capture(), setPage(p))
+  const sorts = SORTS.map((s) => ({ value: s.value, label: t(s.key) }))
+  const productName = names.data?.find((p) => String(p.id) === product)?.name
 
   return (
-    <LedgerCard
-      title="Stock aaya-gaya"
-      sub={`${product === ALL ? "Saara saamaan" : product} · ${rangeLabel(range)} · ${rows.length}`}
-      controls={
-        <>
-          <DateRange value={range} onChange={reset(setRange)} />
-          <Segmented
-            label="Kram"
-            options={SORTS}
-            value={sort}
-            onChange={reset(setSort)}
-            className="h-[52px] bg-card p-1.5"
-          />
-          <SearchField
-            value={query}
-            onChange={reset(setQuery)}
-            placeholder="Naam ya # dhoondo"
-            label="Stock mein dhoondo"
-          />
-          <Pager page={current} pages={pages} onPage={setPage} />
-        </>
-      }
-      compactControls={
-        <>
-          <NotchSearch
-            value={query}
-            onChange={reset(setQuery)}
-            placeholder="Naam ya # dhoondo"
-            label="Stock mein dhoondo"
-          />
-          <FilterButton
-            active={
-              sort !== "naye" ||
-              range.from !== FULL.from ||
-              range.to !== FULL.to
-            }
-          >
+    <section ref={ref}>
+      <LedgerCard
+        title={t("moves.title")}
+        sub={t("moves.sub", {
+          item: productName ?? t("moves.allItems"),
+          range: rangeLabel(range, t, locale),
+          count,
+        })}
+        controls={
+          <>
+            <DateRange value={range} onChange={reset(setRange)} />
             <Segmented
-              label="Kram"
-              options={SORTS}
+              label={t("sort.label")}
+              options={sorts}
               value={sort}
               onChange={reset(setSort)}
               className="h-[52px] bg-card p-1.5"
-              itemClassName="flex-1"
             />
-            <DateRange value={range} onChange={reset(setRange)} />
-          </FilterButton>
-          <Pager page={current} pages={pages} onPage={setPage} />
-        </>
-      }
-      toolbar={
-        <ProductSelect
-          value={product}
-          onChange={reset(setProduct)}
-          names={book.products.map((p) => p.name)}
-        />
-      }
-    >
-      <div className="flex flex-col gap-1.5 overflow-x-auto">
-        <div
-          hidden={phone}
-          className={cn(
-            COLS,
-            "min-w-[560px] px-4 text-xs font-medium text-muted-foreground"
-          )}
-        >
-          <span>Saamaan</span>
-          <span>Kism</span>
-          <span>Zariya</span>
-          <span className="text-right">Maatra</span>
-        </div>
-        {shown.map((e) =>
-          phone ? (
+            <SearchField
+              value={query}
+              onChange={reset(setQuery)}
+              placeholder={t("entries.search")}
+              label={t("moves.searchLabel")}
+            />
+            <Pager page={page} pages={pages} onPage={toPage} />
+          </>
+        }
+        compactControls={
+          <>
+            <NotchSearch
+              value={query}
+              onChange={reset(setQuery)}
+              placeholder={t("entries.search")}
+              label={t("moves.searchLabel")}
+            />
+            <FilterButton active={sort !== "-id" || range !== null}>
+              <Segmented
+                label={t("sort.label")}
+                options={sorts}
+                value={sort}
+                onChange={reset(setSort)}
+                className="h-[52px] bg-card p-1.5"
+                itemClassName="flex-1"
+              />
+              <DateRange value={range} onChange={reset(setRange)} />
+            </FilterButton>
+            <Pager page={page} pages={pages} onPage={toPage} />
+          </>
+        }
+        toolbar={
+          <ProductSelect
+            value={product}
+            onChange={reset(setProduct)}
+            products={names.data ?? []}
+          />
+        }
+      >
+        <div className="flex flex-col gap-1.5 overflow-x-auto">
+          {!phone && (
             <div
-              key={e.id}
-              className="flex items-center justify-between gap-3 rounded-[18px] bg-background px-4 py-3"
-            >
-              <span className="flex min-w-0 flex-col gap-1">
-                <span className="truncate text-sm font-medium">{e.name}</span>
-                <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-raised px-2 py-[2px] font-medium text-foreground">
-                    <Dot color={e.dot} size={6} />
-                    {e.kindLabel}
-                  </span>
-                  {e.idLabel} · {e.date} · {e.src}
-                </span>
-              </span>
-              <span className="shrink-0 text-[15px] font-light tabular-nums">
-                {e.amt}
-              </span>
-            </div>
-          ) : (
-            <div
-              key={e.id}
               className={cn(
                 COLS,
-                "group min-w-[560px] items-center rounded-[18px] bg-background px-4 py-3 transition-colors duration-150 hover:bg-raised"
+                "min-w-[560px] px-4 text-xs font-medium text-muted-foreground"
               )}
             >
-              <span className="flex min-w-0 flex-col gap-px">
-                <span className="truncate text-sm font-medium">{e.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {e.idLabel} · {e.date}
-                </span>
-              </span>
-              <span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-raised px-2.5 py-[3px] text-xs font-medium group-hover:bg-card">
-                  <Dot color={e.dot} size={7} />
-                  {e.kindLabel}
-                </span>
-              </span>
-              <span className="truncate text-[13px]">{e.src}</span>
-              <span className="text-right text-[15px] font-light tabular-nums">
-                {e.amt}
-              </span>
+              <span>{t("col.item")}</span>
+              <span>{t("col.kind")}</span>
+              <span>{t("col.source")}</span>
+              <span className="text-right">{t("col.quantity")}</span>
             </div>
-          )
-        )}
-        {rows.length === 0 && (
-          <p className="px-4 py-7 text-sm text-muted-foreground">
-            Koi stock entry nahi mili.
-          </p>
-        )}
-      </div>
-    </LedgerCard>
+          )}
+          {rows.map((e) =>
+            phone ? (
+              <div
+                key={e.id}
+                data-flip-id={`row-${e.id}`}
+                className={cn(
+                  "flex items-center justify-between gap-3 rounded-[18px] bg-background px-4 py-3",
+                  e.faded && "opacity-50"
+                )}
+              >
+                <span className="flex min-w-0 flex-col gap-1">
+                  <span
+                    className={cn(
+                      "truncate text-sm font-medium",
+                      e.struck && "line-through"
+                    )}
+                  >
+                    {e.name}
+                  </span>
+                  <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-raised px-2 py-[2px] font-medium text-foreground">
+                      <Dot color={e.dot} size={6} />
+                      {e.kindLabel}
+                    </span>
+                    {e.idLabel} · {e.date} · {e.src}
+                  </span>
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 text-[15px] font-light tabular-nums",
+                    e.struck && "line-through"
+                  )}
+                >
+                  {e.amt}
+                </span>
+              </div>
+            ) : (
+              <div
+                key={e.id}
+                data-flip-id={`row-${e.id}`}
+                className={cn(
+                  COLS,
+                  "group min-w-[560px] items-center rounded-[18px] bg-background px-4 py-3 transition-colors duration-150 hover:bg-raised",
+                  e.faded && "opacity-50"
+                )}
+              >
+                <span className="flex min-w-0 flex-col gap-px">
+                  <span
+                    className={cn(
+                      "truncate text-sm font-medium",
+                      e.struck && "line-through"
+                    )}
+                  >
+                    {e.name}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {e.idLabel} · {e.date}
+                  </span>
+                </span>
+                <span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-raised px-2.5 py-[3px] text-xs font-medium group-hover:bg-card">
+                    <Dot color={e.dot} size={7} />
+                    {e.kindLabel}
+                  </span>
+                </span>
+                <span className="truncate text-[13px]">{e.src}</span>
+                <span
+                  className={cn(
+                    "text-right text-[15px] font-light tabular-nums",
+                    e.struck && "line-through"
+                  )}
+                >
+                  {e.amt}
+                </span>
+              </div>
+            )
+          )}
+          {list.isError && <LoadError onRetry={() => list.refetch()} />}
+          {list.data && count === 0 && (
+            <p className="px-4 py-7 text-sm text-muted-foreground">
+              {t("moves.none")}
+            </p>
+          )}
+        </div>
+      </LedgerCard>
+    </section>
   )
 }
 
 function ProductSelect({
   value,
   onChange,
-  names,
+  products,
 }: {
   value: string
   onChange: (v: string) => void
-  names: string[]
+  products: Product[]
 }) {
+  const { t } = useI18n()
   return (
     <Select.Root value={value} onValueChange={onChange}>
       <Select.Trigger
-        aria-label="Saamaan se chhaantiye"
-        className="flex h-10 w-fit cursor-pointer items-center gap-2.5 rounded-full border border-line px-[18px] text-sm outline-none hover:bg-raised focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-raised"
+        aria-label={t("moves.byItem")}
+        className="flex h-10 w-fit max-w-full cursor-pointer items-center gap-2.5 rounded-full border border-line px-[18px] text-sm outline-none hover:bg-raised focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-raised"
       >
-        <BoxIcon size={16} className="text-muted-foreground" />
-        <Select.Value />
+        <BoxIcon size={16} className="shrink-0 text-muted-foreground" />
+        <span className="truncate">
+          <Select.Value />
+        </span>
         <Select.Icon>
           <ChevronIcon size={14} className="rotate-90 text-muted-foreground" />
         </Select.Icon>
@@ -543,18 +591,20 @@ function ProductSelect({
         <Select.Content
           position="popper"
           sideOffset={8}
+          collisionPadding={12}
           className="kf-app z-50 max-h-[var(--radix-select-content-available-height)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-[24px] bg-card p-1.5 text-foreground shadow-[0_24px_60px_rgb(0_0_0/0.35)] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
           <Select.Viewport className="flex flex-col gap-0.5">
-            {[ALL, ...names].map((n) => (
+            {[
+              { id: ALL, name: t("moves.allItems") },
+              ...products.map((p) => ({ id: String(p.id), name: p.name })),
+            ].map((p) => (
               <Select.Item
-                key={n}
-                value={n}
+                key={p.id}
+                value={p.id}
                 className="flex h-10 cursor-pointer items-center rounded-full px-4 text-sm outline-none select-none data-[highlighted]:bg-raised data-[state=checked]:bg-lime data-[state=checked]:text-black"
               >
-                <Select.ItemText>
-                  {n === ALL ? "Saara saamaan" : n}
-                </Select.ItemText>
+                <Select.ItemText>{p.name}</Select.ItemText>
               </Select.Item>
             ))}
           </Select.Viewport>
@@ -564,126 +614,130 @@ function ProductSelect({
   )
 }
 
-function ProductDialog({
-  editing,
-  onClose,
-  taken,
-  onSave,
-  onDelete,
-}: {
-  editing: Item | "new" | null
-  onClose: () => void
-  taken: string[]
-  onSave: (p: NewProduct) => void
-  onDelete: (name: string) => void
-}) {
-  return (
-    <FormDialog open={editing !== null} onClose={onClose}>
-      {editing !== null && (
-        <ProductForm
-          key={editing === "new" ? "" : editing.name}
-          item={editing === "new" ? null : editing}
-          taken={taken}
-          onSave={(p) => (onSave(p), onClose())}
-          onDelete={(name) => (onDelete(name), onClose())}
-        />
-      )}
-    </FormDialog>
-  )
-}
-
 function ProductForm({
   item,
-  taken,
-  onSave,
-  onDelete,
+  onDone,
 }: {
-  item: Item | null
-  taken: string[]
-  onSave: (p: NewProduct) => void
-  onDelete: (name: string) => void
+  item: Product | null
+  onDone: () => void
 }) {
-  const [unit, setUnit] = React.useState<Unit>(item?.unit ?? "Packet")
+  const { t } = useI18n()
+  const { run } = useShell()
+  const [unit, setUnit] = React.useState<Unit>(item?.unit ?? "PACKET")
   const [error, setError] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
   const [confirming, setConfirming] = React.useState(false)
+  const nameRef = React.useRef("")
+  const units = UNITS.map((u) => ({ value: u, label: t(`unit.${u}`) }))
+
+  const save = async (work: () => Promise<unknown>) => {
+    setBusy(true)
+    setError("")
+    try {
+      await run(work)
+      onDone()
+    } catch (e) {
+      setError(errorText(e, t, { name: item?.name ?? nameRef.current }))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   if (item && confirming)
     return (
       <div className="flex flex-col gap-5">
         <div>
           <Dialog.Title className="text-2xl font-normal">
-            {item.name} hatayein?
+            {t("stock.deleteTitle", { name: item.name })}
           </Dialog.Title>
           <Dialog.Description className="mt-1 text-sm text-muted-foreground">
-            Yeh list se hat jayega. Iska purana stock hisaab Entries mein
-            rahega, kuch mitega nahi.
+            {t("stock.deleteBody")}
           </Dialog.Description>
         </div>
-        <div className="flex gap-[10px] pt-1">
-          <button
-            type="button"
-            onClick={() => onDelete(item.name)}
-            className="flex h-14 flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#fe9695] text-base font-medium text-black transition-transform duration-150 hover:scale-[1.02]"
-          >
-            <TrashIcon size={18} />
-            Haan, hatao
-          </button>
-        </div>
+        <FormError error={error} />
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => save(() => write.deleteProduct(item.id))}
+          className="flex h-14 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#fe9695] text-base font-medium text-black transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
+        >
+          <TrashIcon size={18} />
+          {t("form.confirmDelete")}
+        </button>
       </div>
     )
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
-    const thr = Number(f.get("thr"))
-    if (item) return onSave({ name: item.name, unit, thr, opening: 0 })
+    const threshold = Number(f.get("thr"))
+    if (item)
+      return save(() =>
+        write.saveProduct(
+          {
+            name: item.name,
+            aliases: item.aliases ?? [],
+            unit,
+            low_stock_threshold: threshold,
+            is_active: item.is_active,
+          },
+          item.id
+        )
+      )
     const name = String(f.get("name")).trim().replace(/\s+/g, " ")
-    if (!name) return setError("Naam likhiye.")
-    if (taken.some((t) => t.toLowerCase() === name.toLowerCase()))
-      return setError(`"${name}" pehle se list mein hai.`)
-    onSave({ name, unit, thr, opening: Number(f.get("opening")) })
+    if (!name) return setError(t("form.nameMissing"))
+    nameRef.current = name
+    const opening = Number(f.get("opening"))
+    save(async () => {
+      const product = await write.saveProduct({
+        name,
+        aliases: [],
+        unit,
+        low_stock_threshold: threshold,
+      })
+      if (opening > 0)
+        await write.addEntry({
+          kind: "STOCK_IN",
+          product: product.id,
+          quantity: opening,
+        })
+    })
   }
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-5">
       <div>
         <Dialog.Title className="text-2xl font-normal">
-          {item ? item.name : "Naya saamaan"}
+          {item ? item.name : t("stock.new")}
         </Dialog.Title>
         <Dialog.Description className="mt-1 text-sm text-muted-foreground">
-          {item
-            ? "Ikai aur kam ki seema badliye. Stock entries se hi badalta hai."
-            : "Dukaan ki list mein jodiye. Abhi jitna hai, utna stock aaya likh denge."}
+          {item ? t("stock.editBody") : t("stock.newBody")}
         </Dialog.Description>
       </div>
       {!item && (
         <label className="flex flex-col gap-2">
-          <span className="text-[13px] text-muted-foreground">Naam</span>
+          <span className="text-[13px] text-muted-foreground">
+            {t("form.name")}
+          </span>
           <input
             name="name"
             required
             maxLength={40}
             autoFocus
-            placeholder="Jaise Surf Excel 1kg"
+            placeholder={t("stock.namePlaceholder")}
             onChange={() => setError("")}
             className={FIELD}
             aria-invalid={!!error}
           />
-          {error && (
-            <span
-              role="alert"
-              className="px-1 text-[13px] text-[var(--red-ink)]"
-            >
-              {error}
-            </span>
-          )}
         </label>
       )}
       <div className="flex flex-col gap-2">
-        <span className="text-[13px] text-muted-foreground">Ikai</span>
+        <span className="text-[13px] text-muted-foreground">
+          {t("stock.unit")}
+        </span>
         <Segmented
-          label="Ikai"
-          options={UNITS}
+          label={t("stock.unit")}
+          options={units}
           value={unit}
           onChange={setUnit}
           className="w-fit bg-raised p-1.5"
@@ -693,7 +747,7 @@ function ProductForm({
         {!item && (
           <label className="flex flex-col gap-2">
             <span className="text-[13px] text-muted-foreground">
-              Abhi kitna hai
+              {t("stock.opening")}
             </span>
             <input
               name="opening"
@@ -701,15 +755,16 @@ function ProductForm({
               required
               min={0}
               max={100000}
+              step="any"
               defaultValue={0}
-              inputMode="numeric"
+              inputMode="decimal"
               className={FIELD}
             />
           </label>
         )}
         <label className="flex flex-col gap-2">
           <span className="text-[13px] text-muted-foreground">
-            Kam ki seema
+            {t("stock.thresholdLabel")}
           </span>
           <input
             name="thr"
@@ -717,15 +772,18 @@ function ProductForm({
             required
             min={0}
             max={100000}
-            defaultValue={item?.thr ?? 5}
-            inputMode="numeric"
+            step="any"
+            defaultValue={item?.low_stock_threshold ?? 5}
+            inputMode="decimal"
             autoFocus={!!item}
             className={FIELD}
           />
         </label>
       </div>
+      <FormError error={error} />
       <FormActions
-        submit={item ? "Save karo" : "Jodo"}
+        busy={busy}
+        submit={item ? t("form.save") : t("form.add")}
         onDelete={item ? () => setConfirming(true) : undefined}
       />
     </form>

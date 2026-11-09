@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { UndoIcon } from "@/components/app/icons"
 import { Notch, type Corner, notchRadius } from "@/components/notch"
+import { useI18n } from "@/components/app/i18n"
 import { useLayout } from "@/components/app/layout"
 import { cn } from "@/lib/utils"
 
@@ -84,11 +85,12 @@ export function UndoButton({
   onClick: () => void
   className?: string
 }) {
+  const { t } = useI18n()
   return (
     <button
       type="button"
-      title="Palto"
-      aria-label="Palto"
+      title={t("entry.undo")}
+      aria-label={t("entry.undo")}
       onClick={onClick}
       className={cn(
         "grid size-9 cursor-pointer place-items-center rounded-full bg-raised",
