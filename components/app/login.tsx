@@ -340,32 +340,32 @@ function ExampleCards() {
   const { t } = useI18n()
   return (
     <div role="img" aria-label={t("auth.exampleLabel")}>
-      <div className={`absolute right-6 bottom-[112px] left-6 flex max-w-[480px] flex-col gap-4 rounded-[28px] bg-card/80 p-5 backdrop-blur-xl ${RISE} delay-500`}>
+      <div className={`absolute right-6 bottom-[112px] flex w-[300px] max-w-[calc(100%-48px)] flex-col gap-3 rounded-[24px] border border-lime/30 bg-card/80 p-4 backdrop-blur-xl ${RISE} delay-500`}>
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-[17px] font-medium">{t("auth.cardTitle")}</span>
-          <span className="text-[13px] text-muted-foreground">{t("auth.example")}</span>
+          <span className="text-[15px] font-medium">{t("auth.cardTitle")}</span>
+          <span className="text-xs text-muted-foreground">{t("auth.example")}</span>
         </div>
-        <div className="flex gap-[10px]">
-          <span className="flex-1 rounded-[20px] bg-raised px-4 py-3">
-            <span className="block text-2xl font-light">₹1,250</span>
+        <div className="flex gap-2">
+          <span className="flex-1 rounded-[16px] bg-raised px-3 py-2">
+            <span className="block text-xl font-light">₹1,250</span>
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Dot color="var(--chart-udhaar)" size={7} />
               {t("kind.CREDIT_GIVEN")}
             </span>
           </span>
-          <span className="flex-1 rounded-[20px] bg-raised px-4 py-3">
-            <span className="block text-2xl font-light">₹800</span>
+          <span className="flex-1 rounded-[16px] bg-raised px-3 py-2">
+            <span className="block text-xl font-light">₹800</span>
             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Dot color="var(--chart-vasooli)" size={7} />
               {t("kind.PAYMENT_RECEIVED")}
             </span>
           </span>
         </div>
-        <div className="flex h-20 items-end gap-2 px-1">
+        <div className="flex h-12 items-end gap-1.5 px-1">
           {WEEK.map(([u, v], i) => (
             <span key={i} className="flex h-full flex-1 items-end justify-center gap-0.5">
-              <span className="w-2 rounded-t-full rounded-b-[3px] bg-[var(--chart-udhaar)]" style={{ height: `${u}%` }} />
-              <span className="w-2 rounded-t-full rounded-b-[3px] bg-[var(--chart-vasooli)]" style={{ height: `${v}%` }} />
+              <span className="w-1.5 rounded-t-full rounded-b-[2px] bg-[var(--chart-udhaar)]" style={{ height: `${u}%` }} />
+              <span className="w-1.5 rounded-t-full rounded-b-[2px] bg-[var(--chart-vasooli)]" style={{ height: `${v}%` }} />
             </span>
           ))}
         </div>
