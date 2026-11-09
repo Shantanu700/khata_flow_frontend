@@ -555,7 +555,8 @@ export function FormDialog({
           <div
             className={cn(
               "overflow-y-auto overscroll-contain rounded-[32px] bg-card [&_h2]:pr-12",
-              drawer ? "h-full" : "min-h-0",
+              // A drawer is a full-height column, so its content can give one part (a list) the scroll.
+              drawer ? "flex h-full flex-col" : "min-h-0",
               phone ? "p-5" : "p-7"
             )}
             style={NOTCH_MASK}

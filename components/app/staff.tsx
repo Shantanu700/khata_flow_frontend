@@ -15,7 +15,7 @@ import {
   write,
 } from "@/components/app/data"
 import { errorText, useI18n } from "@/components/app/i18n"
-import { ArrowIcon, ChevronIcon, PencilIcon } from "@/components/app/icons"
+import { ChevronIcon, PencilIcon } from "@/components/app/icons"
 import { entryView, initial } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
 import {
@@ -48,7 +48,11 @@ const SHOW: { value: Show; key: string }[] = [
   { value: "yes", key: "staff.show.advance" },
   { value: "no", key: "staff.show.none" },
 ]
-const COLS = "grid grid-cols-[minmax(0,1.6fr)_90px_110px_120px_36px_36px] gap-4"
+const COLS = "grid grid-cols-[minmax(0,1.6fr)_90px_110px_120px_36px] gap-4"
+// The name is the button that opens someone's full account; its overlay stretches over the whole card or row, so a
+// click anywhere opens it, while the card's own buttons sit above the overlay (relative z-10).
+const OPENS = (round: string) =>
+  `cursor-pointer text-left outline-none after:absolute after:inset-0 ${round} focus-visible:after:ring-2 focus-visible:after:ring-ring`
 
 /** What can still be handed over this month, as advance or salary (the server refuses more). */
 const salaryLeft = (p: Party) =>
@@ -178,13 +182,23 @@ export function StaffScreen() {
             {shown.map((s) => (
               <div
                 key={s.id}
-                className="flex items-center gap-3 rounded-[18px] bg-background py-3 pr-2.5 pl-3"
+                className="relative flex items-center gap-3 rounded-[18px] bg-background py-3 pr-3 pl-3 transition-colors duration-150 hover:bg-raised"
               >
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-raised">
                   {initial(s.name)}
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
-                  <span className="truncate text-sm font-medium">{s.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setLedgerOf(s)}
+                    aria-label={t("staff.fullAccount", { name: s.name })}
+                    className={cn(
+                      "truncate text-sm font-medium",
+                      OPENS("after:rounded-[18px]")
+                    )}
+                  >
+                    {s.name}
+                  </button>
                   <span className="text-xs text-muted-foreground">
                     {t("staff.rowMeta", {
                       days: s.attendance_14d?.length ?? 0,
@@ -200,15 +214,6 @@ export function StaffScreen() {
                     {t("staff.left")}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  title={t("staff.fullAccount", { name: s.name })}
-                  aria-label={t("staff.fullAccount", { name: s.name })}
-                  onClick={() => setLedgerOf(s)}
-                  className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-raised"
-                >
-                  <ArrowIcon size={14} />
-                </button>
               </div>
             ))}
           </div>
@@ -225,14 +230,13 @@ export function StaffScreen() {
               <span className="text-right">{t("staff.col.advance")}</span>
               <span className="text-right">{t("staff.col.left")}</span>
               <span />
-              <span />
             </div>
             {shown.map((s) => (
               <div
                 key={s.id}
                 className={cn(
                   COLS,
-                  "group min-w-[620px] items-center rounded-[18px] bg-background py-3 pr-2.5 pl-4 transition-colors duration-150 hover:bg-raised"
+                  "group relative min-w-[620px] items-center rounded-[18px] bg-background py-3 pr-2.5 pl-4 transition-colors duration-150 hover:bg-raised"
                 )}
               >
                 <span className="flex min-w-0 items-center gap-3">
@@ -240,9 +244,17 @@ export function StaffScreen() {
                     {initial(s.name)}
                   </span>
                   <span className="flex min-w-0 flex-col gap-px">
-                    <span className="truncate text-sm font-medium">
+                    <button
+                      type="button"
+                      onClick={() => setLedgerOf(s)}
+                      aria-label={t("staff.fullAccount", { name: s.name })}
+                      className={cn(
+                        "truncate text-sm font-medium",
+                        OPENS("after:rounded-[18px]")
+                      )}
+                    >
                       {s.name}
-                    </span>
+                    </button>
                     <span className="text-xs text-muted-foreground">
                       {t("staff.perMonth", { salary: inr(s.monthly_salary) })}
                     </span>
@@ -260,19 +272,10 @@ export function StaffScreen() {
                 </span>
                 <button
                   type="button"
-                  title={t("staff.fullAccount", { name: s.name })}
-                  aria-label={t("staff.fullAccount", { name: s.name })}
-                  onClick={() => setLedgerOf(s)}
-                  className="grid size-9 cursor-pointer place-items-center rounded-full bg-raised transition-transform duration-200 group-hover:bg-card hover:rotate-45 coarse:size-11"
-                >
-                  <ArrowIcon size={14} />
-                </button>
-                <button
-                  type="button"
                   title={t("stock.edit", { name: s.name })}
                   aria-label={t("stock.edit", { name: s.name })}
                   onClick={() => setEditing(s)}
-                  className="grid size-9 cursor-pointer place-items-center rounded-full bg-raised group-hover:bg-card coarse:size-11"
+                  className="relative z-10 grid size-9 cursor-pointer place-items-center rounded-full bg-raised group-hover:bg-card coarse:size-11"
                 >
                   <PencilIcon size={14} />
                 </button>
@@ -425,7 +428,7 @@ function StaffLedger({ person }: { person: Party }) {
   )
 
   return (
-    <div ref={ref} className="flex flex-col gap-6">
+    <div ref={ref} className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex items-center gap-3.5 pr-12">
         <span className="grid size-14 shrink-0 place-items-center rounded-full bg-raised text-xl">
           {initial(person.name)}
@@ -496,11 +499,14 @@ function StaffLedger({ person }: { person: Party }) {
             })}
           </span>
         </div>
-        <div className="grid grid-cols-7 gap-y-1.5 text-center">
+        <div className="grid grid-cols-7 gap-y-1 text-center">
           {t("weekday.short")
             .split(",")
             .map((w) => (
-              <span key={w} className="pb-1 text-[11px] text-muted-foreground">
+              <span
+                key={w}
+                className="pb-0.5 text-[11px] text-muted-foreground"
+              >
                 {w}
               </span>
             ))}
@@ -513,7 +519,7 @@ function StaffLedger({ person }: { person: Party }) {
                 x.mark === "future" ? undefined : t(`staff.mark.${x.mark}`)
               }
               className={cn(
-                "mx-auto grid aspect-square w-full max-w-10 place-items-center rounded-full text-sm tabular-nums",
+                "mx-auto grid aspect-square w-full max-w-8 place-items-center rounded-full text-[13px] tabular-nums",
                 x.mark === "present" && "bg-cyan text-black",
                 x.mark === "absent" && "bg-raised",
                 x.mark === "none" &&
@@ -543,47 +549,50 @@ function StaffLedger({ person }: { person: Party }) {
         </div>
       </section>
 
+      {/* The month's entries take the space left and scroll on their own; everything above stays put. */}
       <section
         aria-label={t("staff.monthAccount")}
-        className="flex flex-col gap-1.5"
+        className="flex min-h-[160px] flex-1 flex-col gap-1.5"
       >
         <h3 className="mb-1.5 text-sm text-muted-foreground">
           {t("staff.monthAccount")}
         </h3>
-        {rows.map((e) => (
-          <div
-            key={e.id}
-            data-tl-item
-            className={cn(
-              "flex items-center gap-3 rounded-[18px] bg-background px-4 py-3",
-              e.faded && "opacity-50"
-            )}
-          >
-            <span className="flex min-w-0 flex-1 flex-col gap-px">
-              <span className="flex items-center gap-1.5 text-sm font-medium">
-                <Dot color={e.dot} size={7} />
-                {e.kindLabel}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {e.idLabel} · {e.date} · {e.src}
-                {e.tag && ` · ${e.tag}`}
-              </span>
-            </span>
-            <span
+        <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain">
+          {rows.map((e) => (
+            <div
+              key={e.id}
+              data-tl-item
               className={cn(
-                "text-[15px] font-light tabular-nums",
-                e.struck && "line-through"
+                "flex items-center gap-3 rounded-[18px] bg-background px-4 py-3",
+                e.faded && "opacity-50"
               )}
             >
-              {e.amt}
-            </span>
-          </div>
-        ))}
-        {moves.data && rows.length === 0 && (
-          <p className="rounded-[18px] bg-background px-4 py-5 text-sm text-muted-foreground">
-            {t("staff.monthNone")}
-          </p>
-        )}
+              <span className="flex min-w-0 flex-1 flex-col gap-px">
+                <span className="flex items-center gap-1.5 text-sm font-medium">
+                  <Dot color={e.dot} size={7} />
+                  {e.kindLabel}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {e.idLabel} · {e.date} · {e.src}
+                  {e.tag && ` · ${e.tag}`}
+                </span>
+              </span>
+              <span
+                className={cn(
+                  "text-[15px] font-light tabular-nums",
+                  e.struck && "line-through"
+                )}
+              >
+                {e.amt}
+              </span>
+            </div>
+          ))}
+          {moves.data && rows.length === 0 && (
+            <p className="rounded-[18px] bg-background px-4 py-5 text-sm text-muted-foreground">
+              {t("staff.monthNone")}
+            </p>
+          )}
+        </div>
       </section>
     </div>
   )
@@ -632,16 +641,24 @@ function StaffCard({
   const present = new Set(s.attendance_14d ?? [])
   const left = salaryLeft(s)
   return (
-    <div className="relative min-h-0 rounded-[32px] bg-raised">
+    <div className="relative min-h-0 rounded-[32px] bg-raised transition-[filter] duration-150 hover:brightness-110">
       <div className="flex h-full flex-col justify-between gap-3 overflow-y-auto rounded-[32px] p-6 short:gap-2 short:p-5">
         <div className="flex items-center gap-3 pr-24">
           <span className="grid size-12 shrink-0 place-items-center rounded-full bg-card text-lg short:size-10">
             {initial(s.name)}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-2xl font-light short:text-xl">
+            <button
+              type="button"
+              onClick={onLedger}
+              aria-label={t("staff.fullAccount", { name: s.name })}
+              className={cn(
+                "block max-w-full truncate text-2xl font-light short:text-xl",
+                OPENS("after:rounded-[32px]")
+              )}
+            >
               {s.name}
-            </p>
+            </button>
             <p className="text-sm text-muted-foreground">
               {t("staff.salaryLine", { salary: inr(s.monthly_salary) })}
             </p>
@@ -683,7 +700,7 @@ function StaffCard({
             ))}
           </div>
         </div>
-        <div className="flex flex-wrap gap-[10px]">
+        <div className="relative z-10 flex flex-wrap gap-[10px] self-start">
           <button
             type="button"
             onClick={onPresent}
@@ -715,14 +732,6 @@ function StaffCard({
             className="h-10 cursor-pointer rounded-full bg-card px-4 text-sm disabled:cursor-default disabled:opacity-40 short:h-9"
           >
             {t("staff.paidSalary")}
-          </button>
-          <button
-            type="button"
-            onClick={onLedger}
-            className="flex h-10 cursor-pointer items-center gap-2 rounded-full bg-card px-4 text-sm short:h-9"
-          >
-            {t("staff.fullAccountShort")}
-            <ArrowIcon size={14} />
           </button>
         </div>
       </div>
