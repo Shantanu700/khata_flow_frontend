@@ -246,10 +246,47 @@
   --text-8xl--line-height: normal;
 }
 
+/* The mic while a command is being understood: a gradient border turning round the AI orb (voice-powered-orb.tsx).
+   Lime and cyan are the brand's; the violet and rose stops are only here, to read as thinking, not as data. */
+@property --kf-turn {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.kf-ai-ring {
+  --kf-ai: var(--lime), var(--cyan), oklch(0.72 0.16 295), oklch(0.8 0.12 350), var(--lime);
+  background: conic-gradient(from var(--kf-turn), var(--kf-ai));
+  animation: kf-turn 2.4s linear infinite;
+}
+
+/* The same ring blurred behind, as its glow. */
+.kf-ai-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: inherit;
+  filter: blur(18px);
+  opacity: 0.55;
+}
+
+
+@keyframes kf-turn {
+  to {
+    --kf-turn: 360deg;
+  }
+}
+
+
+
+
 @media (prefers-reduced-motion: reduce) {
   .animate-mic-ring,
   .animate-ring,
-  .animate-grow {
+  .animate-grow,
+  .kf-ai-ring {
     animation: none;
   }
 }

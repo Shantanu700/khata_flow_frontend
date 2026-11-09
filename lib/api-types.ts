@@ -336,6 +336,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/voice/stream-ticket/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A 30-second ticket for the live-transcript WebSocket, which cannot take the API token. */
+        post: operations["post_v1_voice_stream_ticket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/voice/text-commands/": {
         parameters: {
             query?: never;
@@ -740,6 +757,11 @@ export interface components {
             /** Format: double */
             monthly_salary: number | null;
             present_days: string[];
+        };
+        StreamTicket: {
+            ticket: string;
+            /** @description The live-transcript WebSocket; connect with ?ticket=…&language=… */
+            url: string;
         };
         Summary: {
             /** Format: double */
@@ -2417,6 +2439,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceCommand"];
+                };
+            };
+            /** @description Request body or query parameters failed validation. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description The account has no shop yet. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description A business rule refused the request; the message can be shown to the user. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+        };
+    };
+    post_v1_voice_stream_ticket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StreamTicket"];
                 };
             };
             /** @description Request body or query parameters failed validation. */

@@ -90,7 +90,7 @@ const fetchers = {
   summary: () => api<Summary>("summary"),
   voice: (page: number) =>
     api<Page<VoiceCommand>>("voice/commands", {
-      params: { page, page_size: 20 },
+      params: { page, page_size: SIZE.table },
     }),
 }
 
@@ -251,8 +251,12 @@ export const useEntries = (p: EntryParams) =>
     ...kept,
   })
 
-export const useVoiceHistory = () =>
-  useQuery({ queryKey: keys.voice(1), queryFn: () => fetchers.voice(1) })
+export const useVoiceHistory = (page = 1) =>
+  useQuery({
+    queryKey: keys.voice(page),
+    queryFn: () => fetchers.voice(page),
+    ...kept,
+  })
 
 export type PartyBody = {
   name: string
