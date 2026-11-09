@@ -37,7 +37,6 @@ import {
 import { Notch, notchRadius } from "@/components/notch"
 import { VoicePoweredOrb } from "@/components/ui/voice-powered-orb"
 import { api, type VoiceCommand } from "@/lib/api"
-import { reduceMotion } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
 /** The pipeline's stages as the chips show them, and the timings_ms keys each one adds up. */
@@ -91,17 +90,6 @@ export function BoloScreen() {
   const stopTimer = React.useRef<number | undefined>(undefined)
   const player = React.useRef<HTMLAudioElement | null>(null)
   const live = useLiveMic()
-  const conversation = React.useRef<HTMLDivElement>(null)
-
-  // Like a chat: whatever arrives last (the queue's steps, the reply) is scrolled into view.
-  React.useEffect(() => {
-    const el = conversation.current
-    if (!el || phase === "idle" || phase === "listening") return
-    el.scrollTo({
-      top: el.scrollHeight,
-      behavior: reduceMotion() ? "auto" : "smooth",
-    })
-  }, [phase, shown, command])
 
   // Show a finished command: its steps move to "done" one by one with their real timings, then the reply plays.
   const land = React.useCallback((c: VoiceCommand) => {
@@ -260,10 +248,7 @@ export function BoloScreen() {
         <div className="flex items-start justify-between gap-3 self-stretch">
           <PanelTitle title={t("screen.bolo.title")} sub={t("bolo.sub")} />
         </div>
-        <div
-          ref={conversation}
-          className="-mx-2 flex min-h-0 w-[calc(100%+16px)] flex-1 flex-col overflow-y-auto px-2"
-        >
+        <div className="-mx-2 flex min-h-0 w-[calc(100%+16px)] flex-1 flex-col overflow-y-auto px-2">
           <div className="m-auto flex w-full flex-col items-center gap-6 py-1">
             <div className={cn("relative mt-3", phone ? "size-24" : "size-32")}>
               {phase === "working" ? (
