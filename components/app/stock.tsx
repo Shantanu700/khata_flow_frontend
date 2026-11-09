@@ -366,7 +366,7 @@ function Meter({ p, className }: { p: Product; className: string }) {
         className="block h-full rounded-full"
         style={{
           width: `${fill(p)}%`,
-          background: p.is_low ? "#ef4949" : "#6ba600",
+          background: p.is_low ? "var(--red)" : "var(--chart-single)",
         }}
       />
     </span>
@@ -659,7 +659,7 @@ function ProductForm({
           type="button"
           disabled={busy}
           onClick={() => save(() => write.deleteProduct(item.id))}
-          className="flex h-14 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#fe9695] text-base font-medium text-black transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
+          className="flex h-14 cursor-pointer items-center justify-center gap-2 rounded-full bg-danger-soft text-base font-medium text-black transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
         >
           <TrashIcon size={18} />
           {t("form.confirmDelete")}

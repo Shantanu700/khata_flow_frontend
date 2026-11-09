@@ -565,7 +565,7 @@ export function FormDialog({
           <Dialog.Close
             title={t("form.close")}
             aria-label={t("form.close")}
-            className="absolute top-0 right-0 grid cursor-pointer place-items-center rounded-full bg-[#fe9695] text-black transition-transform duration-150 hover:rotate-90"
+            className="absolute top-0 right-0 grid cursor-pointer place-items-center rounded-full bg-danger-soft text-black transition-transform duration-150 hover:rotate-90"
             style={{ width: BTN, height: BTN }}
           >
             <CloseIcon size={18} />
@@ -595,7 +595,7 @@ export function FormActions({
           type="button"
           onClick={onDelete}
           disabled={busy}
-          className="flex h-14 flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#fe9695]/15 text-base text-[var(--red-ink)] transition-colors duration-150 hover:bg-[#fe9695]/25 disabled:opacity-50"
+          className="flex h-14 flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-danger-soft/15 text-base text-[var(--red-ink)] transition-colors duration-150 hover:bg-danger-soft/25 disabled:opacity-50"
         >
           <TrashIcon size={18} />
           {t("form.delete")}
@@ -618,7 +618,7 @@ export function FormError({ error }: { error: string }) {
   return (
     <p
       role="alert"
-      className="rounded-[20px] bg-[#fe9695]/15 px-5 py-3 text-sm text-[var(--red-ink)]"
+      className="rounded-[20px] bg-danger-soft/15 px-5 py-3 text-sm text-[var(--red-ink)]"
     >
       {error}
     </p>

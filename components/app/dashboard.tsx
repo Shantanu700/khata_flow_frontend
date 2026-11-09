@@ -186,7 +186,7 @@ export function DashboardScreen() {
             <button
               type="button"
               onClick={() => go("entries")}
-              className="shrink-0 cursor-pointer text-[13px] text-lime hover:text-foreground"
+              className="shrink-0 cursor-pointer text-[13px] text-lime-ink hover:text-foreground"
             >
               {t("dash.seeAll")}
             </button>
@@ -249,7 +249,7 @@ export function DashboardScreen() {
           <button
             type="button"
             onClick={() => go("khata")}
-            className="cursor-pointer text-sm underline underline-offset-4 hover:text-lime"
+            className="cursor-pointer text-sm underline underline-offset-4 hover:text-lime-ink"
           >
             {t("dash.allCustomers", { count: s?.customer_count ?? 0 })}
           </button>

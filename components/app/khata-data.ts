@@ -29,24 +29,24 @@ export const UNITS: Unit[] = ["PACKET", "KG", "LITRE", "PIECE"]
 const KIND_DOT: Record<EntryKind, string> = {
   CREDIT_GIVEN: "var(--chart-udhaar)",
   PAYMENT_RECEIVED: "var(--chart-vasooli)",
-  STOCK_IN: "#6ba600",
-  STOCK_OUT: "#808080",
-  ATTENDANCE: "#66ffed",
-  STAFF_ADVANCE: "#ffdd67",
-  SALARY_PAID: "#ffa566",
-  REVERSAL: "#5f5f5f",
+  STOCK_IN: "var(--chart-single)",
+  STOCK_OUT: "var(--chart-quiet)",
+  ATTENDANCE: "var(--cyan)",
+  STAFF_ADVANCE: "var(--heat-3)",
+  SALARY_PAID: "var(--heat-2)",
+  REVERSAL: "var(--hairline)",
 }
 
 export type Stage = "COMMITTED" | "ANSWERED" | "NEEDS_CLARIFICATION" | "FAILED"
 export const STAGE_DOT: Record<string, string> = {
   COMMITTED: "var(--chart-vasooli)",
-  ANSWERED: "#66ffed",
-  NEEDS_CLARIFICATION: "#ffdd67",
-  FAILED: "#ef4949",
+  ANSWERED: "var(--cyan)",
+  NEEDS_CLARIFICATION: "var(--heat-3)",
+  FAILED: "var(--red)",
 }
 
 /** The five money-heat dots on a debtor card: more filled the more they owe against the biggest debtor. */
-const HEAT = ["#69ff67", "#a9ff66", "#ffdd67", "#ffa566", "#fe9695"]
+const HEAT = ["var(--heat-5)", "var(--heat-4)", "var(--heat-3)", "var(--heat-2)", "var(--heat-1)"]
 export const heat = (balance: number, max: number) => {
   const level =
     balance <= 0 ? 0 : Math.max(1, Math.round((balance / Math.max(max, 1)) * 5))

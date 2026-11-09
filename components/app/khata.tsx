@@ -849,7 +849,7 @@ function CustomerForm({
           onClick={() =>
             save(() => write.deleteParty(item.id).then(() => null))
           }
-          className="flex h-14 cursor-pointer items-center justify-center gap-2 rounded-full bg-[#fe9695] text-base font-medium text-black transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
+          className="flex h-14 cursor-pointer items-center justify-center gap-2 rounded-full bg-danger-soft text-base font-medium text-black transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
         >
           <TrashIcon size={18} />
           {t("form.confirmDelete")}

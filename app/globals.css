@@ -27,6 +27,10 @@
   --red: #ef4949;
   /* Small red text on dark surfaces: the red itself is 3.7:1 on a card, this is 8:1. */
   --red-ink: #ffb3b3;
+  /* Lime as text; the fill itself is unreadable as text on light surfaces. */
+  --lime-ink: var(--lime);
+  /* Soft red fills: delete buttons, error notes. */
+  --danger-soft: #fe9695;
 
   /* The reference's five-dot interest scale, cold to hot. */
   --heat-1: #fe9695;
@@ -69,18 +73,37 @@
   --radius: 1.5rem;
 }
 
+/* Light, after Lead Flow: lime-tinted neutrals, white cards on a grey canvas, lime toned down for fills
+   (neon on a pale page glares), and paper as the one pastel-lime attention panel. */
 [data-theme="light"] {
-  --canvas: #efefed;
-  --surface: #e2e2e0;
-  --raised: #f7f7f6;
-  --deep: #fafaf9;
-  --paper: #ffffff;
-  --ink: #141414;
-  --ink-muted: #5a5a58;
+  --canvas: #edeeea;
+  --surface: #ffffff;
+  --raised: #f3f4f0;
+  --deep: #ffffff;
+  --paper: #e6f6ce;
+  --hairline: #a3a5a0;
+  --ink: #1a1b18;
+  --ink-muted: #5c5f59;
   --line: rgb(0 0 0 / 8%);
   --border: rgb(0 0 0 / 10%);
+  --input: rgb(0 0 0 / 12%);
+
+  --lime: #b5e778;
+  --lime-ink: #467212;
+  --cyan: #87ddd2;
+  --red: #de3b3d;
+  --red-ink: #a51e24;
+  --danger-soft: #ffc3c0;
+
+  --heat-1: #e3645e;
+  --heat-2: #eb883b;
+  --heat-3: #d3a329;
+  --heat-4: #8dbd42;
+  --heat-5: #3bac56;
+
   --chart-udhaar: #c2620f;
   --chart-vasooli: #00897b;
+  --chart-grid: rgb(0 0 0 / 8%);
   color-scheme: light;
 }
 
@@ -120,6 +143,8 @@
   --color-cyan: var(--cyan);
   --color-red: var(--red);
   --color-red-ink: var(--red-ink);
+  --color-lime-ink: var(--lime-ink);
+  --color-danger-soft: var(--danger-soft);
   --color-paper: var(--paper);
   --color-deep: var(--deep);
   --color-line: var(--line);

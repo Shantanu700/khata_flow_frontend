@@ -278,7 +278,7 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
               </Field>
             </Reveal>
             {error && (
-              <p role="alert" className="mb-3 rounded-[20px] bg-[#fe9695]/15 px-5 py-3 text-sm text-[var(--red-ink)]">
+              <p role="alert" className="mb-3 rounded-[20px] bg-danger-soft/15 px-5 py-3 text-sm text-[var(--red-ink)]">
                 {error}
               </p>
             )}
@@ -301,7 +301,7 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
                   <button
                     type="button"
                     onClick={() => switchMode(m === "register" ? "login" : "register")}
-                    className="cursor-pointer font-medium text-foreground transition-colors hover:text-lime"
+                    className="cursor-pointer font-medium text-foreground transition-colors hover:text-lime-ink"
                   >
                     {t(`auth.${m}SwitchAction`)}
                   </button>

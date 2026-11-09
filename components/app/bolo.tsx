@@ -265,8 +265,8 @@ export function BoloScreen() {
                   lit
                     ? "bg-[#e5e5e5] text-black"
                     : phase === "working" && i === 0
-                      ? "bg-raised text-muted-foreground"
-                      : "bg-card text-muted-foreground"
+                      ? "bg-[#e5e5e5] text-muted-foreground dark:bg-raised"
+                      : "bg-raised text-muted-foreground dark:bg-card"
                 )}
               >
                 <span className="text-sm">{t(s.key)}</span>
