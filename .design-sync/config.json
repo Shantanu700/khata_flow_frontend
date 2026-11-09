@@ -1,0 +1,73 @@
+{
+  "projectId": "c27feac6-da87-4f1e-bcc0-d98e4c898b56",
+  "shape": "package",
+  "pkg": "frontend",
+  "globalName": "KhaataFlow",
+  "buildCmd": "bun .design-sync/build-css.mjs",
+  "tsconfig": "tsconfig.json",
+  "srcDir": "components/dashboard",
+  "cssEntry": ".design-sync/.cache/ds.css",
+  "extraFonts": [
+    ".design-sync/fonts/urbanist.css"
+  ],
+  "docsDir": ".design-sync/docs",
+  "provider": {
+    "component": "KhaataFlowRoot"
+  },
+  "componentSrcMap": {
+    "Button": "components/ui/button.tsx",
+    "Segmented": "components/segmented.tsx",
+    "Notch": "components/notch.tsx",
+    "Logo": "components/dashboard/chrome.tsx",
+    "Rail": "components/dashboard/chrome.tsx",
+    "Header": "components/dashboard/chrome.tsx",
+    "Hero": "components/dashboard/hero.tsx",
+    "DebtorCard": "components/dashboard/debtors.tsx",
+    "Debtors": "components/dashboard/debtors.tsx",
+    "ChartCard": "components/dashboard/charts/chart-card.tsx",
+    "DataTable": "components/dashboard/charts/chart-card.tsx",
+    "MoneyChart": "components/dashboard/charts/money-chart.tsx",
+    "StockChart": "components/dashboard/charts/stock-chart.tsx",
+    "StaffMeters": "components/dashboard/charts/staff-meters.tsx",
+    "Entries": "components/dashboard/entries.tsx",
+    "VoicePanel": "components/dashboard/voice-panel.tsx",
+    "Count": "components/dashboard/motion.tsx",
+    "RollText": "components/dashboard/motion.tsx",
+    "Dashboard": "components/dashboard/dashboard.tsx"
+  },
+  "overrides": {
+    "Rail": {
+      "cardMode": "single",
+      "viewport": "1200x380"
+    },
+    "Header": {
+      "cardMode": "single",
+      "viewport": "1100x120"
+    },
+    "Hero": {
+      "cardMode": "column"
+    },
+    "Debtors": {
+      "cardMode": "single",
+      "viewport": "1200x560"
+    },
+    "StaffMeters": {
+      "cardMode": "single",
+      "viewport": "960x300"
+    },
+    "MoneyChart": {
+      "cardMode": "column"
+    },
+    "StockChart": {
+      "cardMode": "column"
+    },
+    "Dashboard": {
+      "cardMode": "single",
+      "viewport": "1440x1520"
+    },
+    "Segmented": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}
