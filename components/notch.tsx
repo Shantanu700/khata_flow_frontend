@@ -13,7 +13,13 @@ export const notchRadius = (control: number, gap = 10) => (control + gap) / 2
 /** `b` sits centred on the bottom edge. */
 export type Corner = "tl" | "tr" | "br" | "bl" | "b"
 
-const fillet = (at: string, r: number) => `radial-gradient(circle at ${at}, transparent ${r - 0.5}px, var(--notch-bg) ${r}px)`
+const fillet = (at: string, r: number, edge?: string) =>
+  edge
+    ? `radial-gradient(circle at ${at}, transparent ${r - 2.5}px, ${edge} ${r - 2}px, ${edge} ${r - 0.5}px, var(--notch-bg) ${r}px)`
+    : `radial-gradient(circle at ${at}, transparent ${r - 0.5}px, var(--notch-bg) ${r}px)`
+
+// Offsets that put a 2px line along the block's two inner edges.
+const EDGE_SHADOW: Partial<Record<Corner, string>> = { tl: "2px 2px", tr: "-2px 2px", br: "-2px -2px", bl: "2px -2px" }
 
 // Each corner: where the block sits, its padding and rounded inner corner, and the two
 // fillets that curve the panel's edge into the notch.
@@ -46,6 +52,7 @@ export function Notch({
   r = NOTCH_R,
   gap = 8,
   bg = "var(--canvas)",
+  edge,
   className,
   style,
   children,
@@ -56,6 +63,8 @@ export function Notch({
   gap?: number
   /** The colour behind the panel, which the notch shows through. */
   bg?: string
+  /** Continues the panel's 2px inset edge line round the notch. */
+  edge?: string
   children: React.ReactNode
 } & React.HTMLAttributes<HTMLDivElement>) {
   const { box, fillets } = corners(r, gap)[corner]
@@ -63,7 +72,13 @@ export function Notch({
     <div
       data-notch={corner}
       className={cn("absolute box-border", className)}
-      style={{ ...box, background: bg, ["--notch-bg" as string]: bg, ...style }}
+      style={{
+        ...box,
+        background: bg,
+        ["--notch-bg" as string]: bg,
+        ...(edge && EDGE_SHADOW[corner] && { boxShadow: `${EDGE_SHADOW[corner]} 0 0 ${edge}` }),
+        ...style,
+      }}
       {...rest}
     >
       {children}
@@ -72,7 +87,7 @@ export function Notch({
           key={i}
           aria-hidden
           className="pointer-events-none absolute"
-          style={{ ...pos, width: r, height: r, background: fillet(at, r) }}
+          style={{ ...pos, width: r, height: r, background: fillet(at, r, edge) }}
         />
       ))}
     </div>

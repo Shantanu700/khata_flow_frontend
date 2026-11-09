@@ -313,10 +313,11 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
 
         {/* Picture panel: the photo (when supplied) with KhaataFlow's own cards over it, and the theme toggle
             in the cut-out corner. */}
-        <section className="relative hidden min-h-[640px] overflow-hidden rounded-[32px] bg-deep lg:block">
+        <section className="relative hidden min-h-[640px] overflow-hidden rounded-[32px] bg-deep [--photo-edge:color-mix(in_oklch,var(--lime)_55%,var(--card))] lg:block">
           {PHOTO && <Image src={PHOTO} alt="" fill priority placeholder="blur" sizes="(min-width: 1024px) 55vw, 0px" className="object-cover object-[44%_center]" />}
           <ExampleCards />
-          <Notch corner="tr" r={notchRadius(64)} gap={10} bg="var(--card)" className="flex items-center gap-[10px]">
+          <div aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit] ring-2 ring-(--photo-edge) ring-inset" />
+          <Notch corner="tr" edge="var(--photo-edge)" r={notchRadius(64)} gap={10} bg="var(--card)" className="z-10 flex items-center gap-[10px]">
             {controls(true)}
           </Notch>
         </section>
@@ -340,7 +341,7 @@ function ExampleCards() {
   const { t } = useI18n()
   return (
     <div role="img" aria-label={t("auth.exampleLabel")}>
-      <div className={`absolute right-6 bottom-[112px] flex w-[300px] max-w-[calc(100%-48px)] flex-col gap-3 rounded-[24px] border border-lime/30 bg-card/80 p-4 backdrop-blur-xl ${RISE} delay-500`}>
+      <div className={`absolute right-6 bottom-[112px] flex w-[300px] max-w-[calc(100%-48px)] flex-col gap-3 rounded-[24px] bg-card/80 p-4 backdrop-blur-xl ${RISE} delay-500`}>
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-[15px] font-medium">{t("auth.cardTitle")}</span>
           <span className="text-xs text-muted-foreground">{t("auth.example")}</span>
@@ -378,7 +379,7 @@ function ExampleCards() {
         <div className="self-end rounded-[20px] bg-paper px-4 py-3 text-[15px] text-black">{t("login.exampleReply")}</div>
       </div>
 
-      <Notch corner="bl" r={notchRadius(76)} gap={10} bg="var(--card)" className="max-w-[calc(100%-60px)]">
+      <Notch corner="bl" edge="var(--photo-edge)" r={notchRadius(76)} gap={10} bg="var(--card)" className="z-10 max-w-[calc(100%-60px)]">
         <div className={`flex items-center gap-6 rounded-[28px] bg-background py-4 pr-4 pl-[22px] ${RISE} delay-700`}>
           <span className="flex min-w-0 flex-col gap-0.5 whitespace-nowrap">
             <span className="text-base font-medium">{t("auth.notchTitle")}</span>
