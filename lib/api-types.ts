@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/register/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Open a new shop: creates the owner, the shop and the API token in one go. */
+        post: operations["post_v1_auth_register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/entries/": {
         parameters: {
             query?: never;
@@ -599,6 +616,21 @@ export interface components {
             monthly_salary?: number | null;
             is_active?: boolean;
         };
+        /**
+         * @description * `hi-Latn` - hi-Latn
+         *     * `bn-IN` - bn-IN
+         *     * `en-IN` - en-IN
+         *     * `gu-IN` - gu-IN
+         *     * `hi-IN` - hi-IN
+         *     * `kn-IN` - kn-IN
+         *     * `ml-IN` - ml-IN
+         *     * `mr-IN` - mr-IN
+         *     * `pa-IN` - pa-IN
+         *     * `ta-IN` - ta-IN
+         *     * `te-IN` - te-IN
+         * @enum {string}
+         */
+        PreferredLanguageEnum: "hi-Latn" | "bn-IN" | "en-IN" | "gu-IN" | "hi-IN" | "kn-IN" | "ml-IN" | "mr-IN" | "pa-IN" | "ta-IN" | "te-IN";
         /** @description (shop, name) is unique; check it here so a duplicate is a 400, not an IntegrityError. */
         Product: {
             readonly id: number;
@@ -637,6 +669,14 @@ export interface components {
          * @enum {integer}
          */
         RecordStatusEnum: 0 | 1 | 2;
+        /** @description A new owner and their shop. The password follows Django's password rules. */
+        RegisterRequest: {
+            shop_name: string;
+            username: string;
+            password: string;
+            /** @default en-IN */
+            preferred_language: components["schemas"]["PreferredLanguageEnum"];
+        };
         Session: {
             readonly username: string;
             shop: components["schemas"]["Shop"];
@@ -717,7 +757,7 @@ export interface components {
             /** Format: double */
             week_payment: number;
             entry_count_14d: number;
-            /** @description The 6 latest entries that aren't stock movements. */
+            /** @description The 6 latest money entries (no stock movements or attendance). */
             recent: components["schemas"]["Entry"][];
         };
         TextCommandRequest: {
@@ -849,6 +889,50 @@ export interface operations {
             };
             /** @description The account has no shop yet. */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description A business rule refused the request; the message can be shown to the user. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+        };
+    };
+    post_v1_auth_register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RegisterRequest"];
+                "multipart/form-data": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Indicates that operation was successful. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            /** @description Request body or query parameters failed validation. */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
