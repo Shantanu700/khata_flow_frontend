@@ -11,9 +11,9 @@ import { useTheme } from "@/components/app/theme"
 import { Notch, notchRadius } from "@/components/notch"
 import type { Me } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import shopkeeper from "@/public/images/auth-shopkeeper.jpg"
 
-/** The picture panel's photo. Empty until the image is supplied: the panel shows its own surface. */
-const PHOTO: StaticImageData | null = null
+const PHOTO: StaticImageData | null = shopkeeper
 
 type Mode = "login" | "register"
 const MODES: Mode[] = ["login", "register"]
@@ -314,7 +314,7 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
         {/* Picture panel: the photo (when supplied) with KhaataFlow's own cards over it, and the theme toggle
             in the cut-out corner. */}
         <section className="relative hidden min-h-[640px] overflow-hidden rounded-[32px] bg-deep lg:block">
-          {PHOTO && <Image src={PHOTO} alt="" fill priority placeholder="blur" sizes="(min-width: 1024px) 55vw, 0px" className="object-cover" />}
+          {PHOTO && <Image src={PHOTO} alt="" fill priority placeholder="blur" sizes="(min-width: 1024px) 55vw, 0px" className="object-cover object-[44%_center]" />}
           <ExampleCards />
           <Notch corner="tr" r={notchRadius(64)} gap={10} bg="var(--card)" className="flex items-center gap-[10px]">
             {controls(true)}
@@ -340,7 +340,7 @@ function ExampleCards() {
   const { t } = useI18n()
   return (
     <div role="img" aria-label={t("auth.exampleLabel")}>
-      <div className={`absolute top-6 right-[176px] left-6 flex max-w-[480px] flex-col gap-4 rounded-[28px] bg-card/80 p-5 backdrop-blur-xl ${RISE} delay-300`}>
+      <div className={`absolute right-6 bottom-[112px] left-6 flex max-w-[480px] flex-col gap-4 rounded-[28px] bg-card/80 p-5 backdrop-blur-xl ${RISE} delay-500`}>
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-[17px] font-medium">{t("auth.cardTitle")}</span>
           <span className="text-[13px] text-muted-foreground">{t("auth.example")}</span>
@@ -371,7 +371,7 @@ function ExampleCards() {
         </div>
       </div>
 
-      <div className={`absolute right-8 bottom-[132px] left-8 flex max-w-[480px] flex-col gap-2 ${RISE} delay-500`}>
+      <div className={`absolute top-6 right-[176px] left-6 flex max-w-[420px] flex-col gap-2 ${RISE} delay-300`}>
         <div className="flex items-center gap-2.5 self-start rounded-[20px] bg-raised px-4 py-3 text-[15px]">
           <MicIcon size={16} />“{t("login.exampleSaid")}”
         </div>
