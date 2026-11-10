@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 import Image, { type StaticImageData } from "next/image"
 
 import { useI18n } from "@/components/app/i18n"
@@ -168,6 +169,10 @@ export function LoginScreen({
   const [mismatch, setMismatch] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const register = mode === "register"
+  const fail = (message: string) => {
+    setError(message)
+    toast.error(message)
+  }
 
   const switchMode = (next: Mode) => {
     setError("")
@@ -206,7 +211,7 @@ export function LoginScreen({
       const result = await res.json().catch(() => ({}))
       if (!res.ok) {
         const details = result?.error?.details ?? {}
-        return setError(
+        return fail(
           res.status === 429
             ? t("login.tooMany")
             : result?.error?.code === "AUTHENTICATION_FAILED"
@@ -222,7 +227,7 @@ export function LoginScreen({
       }
       onSignedIn(result as Me)
     } catch {
-      setError(t("error.offline"))
+      fail(t("error.offline"))
     } finally {
       setBusy(false)
     }
