@@ -655,7 +655,7 @@ function StaffCard({
   const present = new Set(s.attendance_14d ?? [])
   const left = salaryLeft(s)
   return (
-    <div className="relative min-h-0 rounded-[32px] bg-raised transition-[filter] duration-150 hover:brightness-110">
+    <div className="relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]">
       <div className="flex h-full flex-col justify-between gap-3 overflow-y-auto rounded-[32px] p-6 short:gap-2 short:p-5">
         <div className="flex items-center gap-3 pr-24">
           <span className="grid size-12 shrink-0 place-items-center rounded-full bg-card text-lg short:size-10">
