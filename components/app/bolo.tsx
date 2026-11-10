@@ -5,6 +5,7 @@ import {
   CircleCheckIcon,
   CircleDotIcon,
   CircleIcon,
+  KeyboardIcon,
   ListChecksIcon,
   ListTodoIcon,
   XIcon,
@@ -12,7 +13,7 @@ import {
 
 import { SIZE, useVoiceHistory } from "@/components/app/data"
 import { useI18n } from "@/components/app/i18n"
-import { ArrowIcon, MicIcon, PlayIcon, StopIcon } from "@/components/app/icons"
+import { ArrowIcon, MicIcon, PlayIcon } from "@/components/app/icons"
 import { STAGE_DOT } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
 import {
@@ -23,7 +24,7 @@ import {
   useNotchBox,
 } from "@/components/app/ledger"
 import { useLiveMic } from "@/components/app/live-mic"
-import { CornerButton, Dot, PanelTitle } from "@/components/app/parts"
+import { CornerButton, Dot, PanelTitle, Tip } from "@/components/app/parts"
 import { useShell } from "@/components/app/shell"
 import { Waveform } from "@/components/app/waveform"
 import {
@@ -291,8 +292,8 @@ export function BoloScreen() {
                 "relative isolate mt-3 grid shrink-0 place-items-center transition-[width,height,border-radius] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                 phase === "listening"
                   ? cn(
-                      "w-[520px] max-w-full",
-                      phone ? "h-20 rounded-[28px]" : "h-24 rounded-[32px]"
+                      "w-[440px] max-w-full",
+                      phone ? "h-14 rounded-[22px]" : "h-16 rounded-[24px]"
                     )
                   : phone
                     ? "size-24 rounded-[48px]"
@@ -309,36 +310,32 @@ export function BoloScreen() {
                   <MicIcon size={40} stroke={1.6} />
                 </div>
               ) : phase === "listening" ? (
-                <div
-                  className={cn(
-                    "flex size-full animate-in items-center gap-3 duration-300 fade-in-0",
-                    phone ? "pr-4 pl-5" : "pr-5 pl-7"
-                  )}
-                >
+                <div className="flex size-full animate-in items-center gap-4 pr-2 pl-5 duration-300 fade-in-0">
+                  <Elapsed />
                   <Waveform
                     levels={live.levels}
-                    className="min-w-0 flex-1 [--foreground:#000] [--hairline:#000]"
+                    className="h-8 min-w-0 flex-1 text-black"
                   />
-                  <button
-                    type="button"
-                    title={t("bolo.stop")}
-                    aria-label={t("bolo.stop")}
-                    onClick={() =>
-                      recorder.current?.state === "recording" &&
-                      recorder.current.stop()
-                    }
-                    className={cn(
-                      "grid shrink-0 cursor-pointer place-items-center rounded-[12px] bg-black text-lime transition-transform duration-150 active:scale-[0.94]",
-                      phone ? "size-12" : "size-14"
-                    )}
-                  >
-                    <StopIcon size={22} stroke={1.8} />
-                  </button>
+                  <Tip label={t("bolo.stop")}>
+                    <button
+                      type="button"
+                      aria-label={t("bolo.stop")}
+                      onClick={() =>
+                        recorder.current?.state === "recording" &&
+                        recorder.current.stop()
+                      }
+                      className={cn(
+                        "grid shrink-0 cursor-pointer place-items-center rounded-full bg-black transition-transform duration-150 active:scale-[0.92]",
+                        phone ? "size-10" : "size-12"
+                      )}
+                    >
+                      <span className="size-3.5 rounded-[3px] bg-lime" />
+                    </button>
+                  </Tip>
                 </div>
               ) : (
                 <button
                   type="button"
-                  title={t("bolo.press")}
                   aria-label={t("bolo.press")}
                   onClick={listen}
                   className="grid size-full cursor-pointer place-items-center rounded-[inherit] transition-transform duration-150 active:scale-[0.96]"
@@ -446,28 +443,33 @@ export function BoloScreen() {
             setTyped("")
             sendText(text)
           }}
-          className="flex w-full max-w-[640px] flex-col gap-3.5 rounded-[28px] bg-raised p-5 dark:bg-card"
+          className="flex w-full max-w-[560px] items-center gap-3 rounded-full bg-raised py-1.5 pr-1.5 pl-5 transition-shadow duration-150 focus-within:ring-2 focus-within:ring-ring dark:bg-card"
         >
-          <PanelTitle title={t("bolo.typeTitle")} sub={t("bolo.typeSub")} />
-          <div className="flex items-center gap-2 rounded-full bg-card py-1.5 pr-1.5 pl-[18px] dark:bg-raised">
-            <input
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              aria-label={t("bolo.typeTitle")}
-              placeholder={t("bolo.typePlaceholder")}
-              maxLength={500}
-              className="min-w-0 flex-1 bg-transparent text-base outline-none sm:text-sm"
-            />
+          <KeyboardIcon
+            aria-hidden
+            size={18}
+            className="shrink-0 text-muted-foreground"
+          />
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            aria-label={t("bolo.typeTitle")}
+            placeholder={t("bolo.typePlaceholder")}
+            maxLength={500}
+            className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-sm"
+          />
+          <Tip label={t("header.send")}>
             <button
               type="submit"
-              title={t("header.send")}
               aria-label={t("header.send")}
-              disabled={phase === "working" || phase === "listening"}
-              className="grid size-10 cursor-pointer place-items-center rounded-full bg-foreground text-background disabled:opacity-50"
+              disabled={
+                !typed.trim() || phase === "working" || phase === "listening"
+              }
+              className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full bg-foreground text-background transition-opacity duration-150 disabled:cursor-default disabled:opacity-0"
             >
               <ArrowIcon size={16} />
             </button>
-          </div>
+          </Tip>
         </form>
         <CornerButton
           corner="br"
@@ -546,6 +548,22 @@ export function BoloScreen() {
         </Notch>
       </section>
     </div>
+  )
+}
+
+/** Time since recording started, as 0:07. */
+function Elapsed() {
+  const [start] = React.useState(() => Date.now())
+  const [now, setNow] = React.useState(start)
+  React.useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 250)
+    return () => window.clearInterval(tick)
+  }, [])
+  const s = Math.floor((now - start) / 1000)
+  return (
+    <span className="w-9 shrink-0 text-sm text-black/60 tabular-nums">
+      {Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}
+    </span>
   )
 }
 

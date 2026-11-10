@@ -6,6 +6,7 @@ import { Popover } from "radix-ui"
 import { useLanguages } from "@/components/app/data"
 import { useI18n } from "@/components/app/i18n"
 import { GlobeIcon } from "@/components/app/icons"
+import { Tip } from "@/components/app/parts"
 import { cn } from "@/lib/utils"
 
 /** The globe button and its list of languages, each in its own script. */
@@ -26,18 +27,19 @@ export function LanguagePicker({
   const current = languages.data?.find((l) => l.code === value)
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger
-        title={t("header.language")}
-        aria-label={`${t("header.language")}: ${current?.native_name ?? value}`}
-        className={cn(
-          "flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-full bg-card text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          compact ? "w-[52px]" : "px-[18px]",
-          className
-        )}
-      >
-        <GlobeIcon />
-        {!compact && (current?.native_name ?? value)}
-      </Popover.Trigger>
+      <Tip label={compact ? t("header.language") : undefined}>
+        <Popover.Trigger
+          aria-label={`${t("header.language")}: ${current?.native_name ?? value}`}
+          className={cn(
+            "flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-full bg-card text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            compact ? "w-[52px]" : "px-[18px]",
+            className
+          )}
+        >
+          <GlobeIcon />
+          {!compact && (current?.native_name ?? value)}
+        </Popover.Trigger>
+      </Tip>
       <Popover.Portal>
         <Popover.Content
           align="end"

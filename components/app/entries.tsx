@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 
 import { SIZE, useDebounced, useEntries, write } from "@/components/app/data"
 import {
@@ -9,7 +10,7 @@ import {
   rangeParams,
   type Range,
 } from "@/components/app/date-range"
-import { useI18n } from "@/components/app/i18n"
+import { errorText, useI18n } from "@/components/app/i18n"
 import { entryView } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
 import {
@@ -22,7 +23,7 @@ import {
   pagesOf,
 } from "@/components/app/ledger"
 import { useListMotion } from "@/components/app/list-motion"
-import { Dot, UndoButton } from "@/components/app/parts"
+import { Dot, UndoButton, toasted } from "@/components/app/parts"
 import { useShell } from "@/components/app/shell"
 import { Segmented } from "@/components/segmented"
 import { cn } from "@/lib/utils"
@@ -81,7 +82,10 @@ export function EntriesScreen() {
     <V,>(set: (v: V) => void) =>
     (v: V) => (capture(), set(v), setPage(1))
   const toPage = (p: number) => (capture(), setPage(p))
-  const undo = (id: number) => run(() => write.undo(id)).catch(() => undefined)
+  const undo = (id: number) =>
+    run(() => write.undo(id))
+      .then(toasted(t("toast.undone")))
+      .catch((e) => toast.error(errorText(e, t)))
 
   const sorts = SORTS.map((s) => ({ value: s.value, label: t(s.key) }))
 

@@ -37,6 +37,7 @@ import { StaffScreen } from "@/components/app/staff"
 import { StockScreen } from "@/components/app/stock"
 import { useTheme } from "@/components/app/theme"
 import { useScreenMorph } from "@/components/app/use-screen-morph"
+import { Tip } from "@/components/app/parts"
 import { ApiError, SIGNED_OUT, api, type Me } from "@/lib/api"
 import { reduceMotion } from "@/lib/motion"
 import { cn } from "@/lib/utils"
@@ -98,7 +99,10 @@ function Gate() {
 
   const pickGuest = async (next: string) => {
     picked.current = true
-    await client.prefetchQuery({ queryKey: keys.strings(next), queryFn: () => api<Record<string, string>>(`i18n/${next}`) })
+    await client.prefetchQuery({
+      queryKey: keys.strings(next),
+      queryFn: () => api<Record<string, string>>(`i18n/${next}`),
+    })
     setGuest(next)
     try {
       localStorage.setItem(GUEST_LANGUAGE, next)
@@ -107,7 +111,8 @@ function Gate() {
 
   const signedIn = async (session: Me) => {
     let current = session
-    if (picked.current && session.shop.preferred_language !== guest) current = await write.setLanguage(guest).catch(() => session)
+    if (picked.current && session.shop.preferred_language !== guest)
+      current = await write.setLanguage(guest).catch(() => session)
     client.setQueryData(keys.me, current)
   }
 
@@ -314,51 +319,58 @@ function App({ me }: { me: Me }) {
                   maxLength={500}
                   className="h-10 min-w-0 flex-1 bg-transparent text-base text-black outline-none placeholder:text-black/50 sm:text-sm"
                 />
-                <button
-                  type="submit"
-                  title={t("header.send")}
-                  aria-label={t("header.send")}
-                  className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black text-white"
-                >
-                  <ArrowIcon size={16} />
-                </button>
+                <Tip label={t("header.send")}>
+                  <button
+                    type="submit"
+                    aria-label={t("header.send")}
+                    className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black text-white"
+                  >
+                    <ArrowIcon size={16} />
+                  </button>
+                </Tip>
               </form>
               <LanguagePicker
                 value={code}
                 onChange={setLanguage}
                 compact={phone}
               />
-              <button
-                type="button"
-                title={theme === "dark" ? t("header.light") : t("header.dark")}
-                aria-label={
-                  theme === "dark" ? t("header.light") : t("header.dark")
-                }
-                onClick={toggleTheme}
-                className="grid size-[52px] cursor-pointer place-items-center rounded-full bg-card"
+              <Tip
+                label={theme === "dark" ? t("header.light") : t("header.dark")}
               >
-                {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-              </button>
-              <button
-                type="button"
-                title={
+                <button
+                  type="button"
+                  aria-label={
+                    theme === "dark" ? t("header.light") : t("header.dark")
+                  }
+                  onClick={toggleTheme}
+                  className="grid size-[52px] cursor-pointer place-items-center rounded-full bg-card"
+                >
+                  {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+                </button>
+              </Tip>
+              <Tip
+                label={
                   lowCount
                     ? t("header.lowStock", { count: lowCount })
                     : t("header.noAlerts")
                 }
-                aria-label={
-                  lowCount
-                    ? t("header.lowStock", { count: lowCount })
-                    : t("header.noAlerts")
-                }
-                onClick={() => lowCount && go("stock")}
-                className="relative grid size-[52px] cursor-pointer place-items-center rounded-full bg-card"
               >
-                <BellIcon />
-                {lowCount > 0 && (
-                  <span className="absolute top-3.5 right-[15px] size-2 rounded-full bg-red" />
-                )}
-              </button>
+                <button
+                  type="button"
+                  aria-label={
+                    lowCount
+                      ? t("header.lowStock", { count: lowCount })
+                      : t("header.noAlerts")
+                  }
+                  onClick={() => lowCount && go("stock")}
+                  className="relative grid size-[52px] cursor-pointer place-items-center rounded-full bg-card"
+                >
+                  <BellIcon />
+                  {lowCount > 0 && (
+                    <span className="absolute top-3.5 right-[15px] size-2 rounded-full bg-red" />
+                  )}
+                </button>
+              </Tip>
             </header>
 
             <div

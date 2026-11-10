@@ -1,9 +1,15 @@
 import * as React from "react"
+import { toast } from "sonner"
 
 import { UndoIcon } from "@/components/app/icons"
 import { Notch, type Corner, notchRadius } from "@/components/notch"
 import { useI18n } from "@/components/app/i18n"
 import { useLayout } from "@/components/app/layout"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 
 /** The design's corner control: a 52px round button sitting in a notch cut into the card. */
@@ -51,24 +57,54 @@ export function CornerButton({
       data-shape={flip ? "" : undefined}
       className="flex"
     >
-      <button
-        type="button"
-        title={title}
-        aria-label={title}
-        onClick={onClick}
-        disabled={disabled}
-        className={cn(
-          phone ? "size-11" : "size-[52px]",
-          "grid cursor-pointer place-items-center rounded-full bg-card text-foreground transition-[transform,opacity] duration-200 disabled:cursor-default disabled:opacity-40",
-          rotate && "hover:rotate-45",
-          className
-        )}
-      >
-        {children}
-      </button>
+      <Tip label={title}>
+        <button
+          type="button"
+          aria-label={title}
+          onClick={onClick}
+          disabled={disabled}
+          className={cn(
+            phone ? "size-11" : "size-[52px]",
+            "grid cursor-pointer place-items-center rounded-full bg-card text-foreground transition-[transform,opacity] duration-200 disabled:cursor-default disabled:opacity-40",
+            rotate && "hover:rotate-45",
+            className
+          )}
+        >
+          {children}
+        </button>
+      </Tip>
     </Notch>
   )
 }
+
+/** The label of an icon-only control on hover and keyboard focus (shadcn's tooltip, as in Lead Flow). */
+export function Tip({
+  label,
+  side,
+  children,
+}: {
+  label?: React.ReactNode
+  side?: "top" | "right" | "bottom" | "left"
+  children: React.ReactElement
+}) {
+  if (!label) return children
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side={side} sideOffset={6}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+/** Confirms a finished write with a toast and passes its result on. */
+export const toasted =
+  (message: string) =>
+  <R,>(result: R) => {
+    toast.success(message)
+    return result
+  }
 
 export const Dot = ({ color, size = 10 }: { color: string; size?: number }) => (
   <span
@@ -87,18 +123,19 @@ export function UndoButton({
 }) {
   const { t } = useI18n()
   return (
-    <button
-      type="button"
-      title={t("entry.undo")}
-      aria-label={t("entry.undo")}
-      onClick={onClick}
-      className={cn(
-        "grid size-9 cursor-pointer place-items-center rounded-full bg-raised",
-        className
-      )}
-    >
-      <UndoIcon size={14} />
-    </button>
+    <Tip label={t("entry.undo")}>
+      <button
+        type="button"
+        aria-label={t("entry.undo")}
+        onClick={onClick}
+        className={cn(
+          "grid size-9 cursor-pointer place-items-center rounded-full bg-raised",
+          className
+        )}
+      >
+        <UndoIcon size={14} />
+      </button>
+    </Tip>
   )
 }
 

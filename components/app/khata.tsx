@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 import { Dialog } from "radix-ui"
 
 import {
@@ -40,7 +41,14 @@ import {
   type View,
 } from "@/components/app/ledger"
 import { useListMotion } from "@/components/app/list-motion"
-import { AliasChip, Dot, Swap, UndoButton } from "@/components/app/parts"
+import {
+  AliasChip,
+  Dot,
+  Swap,
+  UndoButton,
+  Tip,
+  toasted,
+} from "@/components/app/parts"
 import { useShell } from "@/components/app/shell"
 import { Notch, notchRadius } from "@/components/notch"
 import { Segmented } from "@/components/segmented"
@@ -340,7 +348,10 @@ function CustomerLedger({
   const pages = pagesOf(ledger.data?.count, SIZE.table)
   const { capture } = useListMotion(ref, [rows.map((e) => e.id).join()])
   const owed = sel.balance ?? 0
-  const undo = (id: number) => run(() => write.undo(id)).catch(() => undefined)
+  const undo = (id: number) =>
+    run(() => write.undo(id))
+      .then(toasted(t("toast.undone")))
+      .catch((e) => toast.error(errorText(e, t)))
   const kinds = [
     { value: "sab" as const, label: t("khata.kind.all") },
     ...(["CREDIT_GIVEN", "PAYMENT_RECEIVED"] as const).map((k) => ({
@@ -393,18 +404,19 @@ function CustomerLedger({
     >
       {onBack && (
         // In the card's corner, 10px in like the notches, so its curve follows the card's corner.
-        <button
-          type="button"
-          title={t("khata.back")}
-          aria-label={t("khata.back")}
-          onClick={onBack}
-          className={cn(
-            "absolute top-[10px] left-[10px] grid cursor-pointer place-items-center rounded-full bg-raised transition-transform duration-150 active:scale-[0.94]",
-            phone ? "size-11" : "size-[52px]"
-          )}
-        >
-          <ChevronIcon left size={18} />
-        </button>
+        <Tip label={t("khata.back")}>
+          <button
+            type="button"
+            aria-label={t("khata.back")}
+            onClick={onBack}
+            className={cn(
+              "absolute top-[10px] left-[10px] grid cursor-pointer place-items-center rounded-full bg-raised transition-transform duration-150 active:scale-[0.94]",
+              phone ? "size-11" : "size-[52px]"
+            )}
+          >
+            <ChevronIcon left size={18} />
+          </button>
+        </Tip>
       )}
       <div
         className="min-h-[52px] min-w-0"
@@ -477,29 +489,36 @@ function CustomerLedger({
             <Dot color="var(--chart-udhaar)" />
             {phone ? t("kind.CREDIT_GIVEN") : t("khata.writeCredit")}
           </button>
-          <button
-            type="button"
-            onClick={() => onWrite("PAYMENT_RECEIVED")}
-            disabled={owed <= 0}
-            title={owed <= 0 ? t("khata.nothingOwed") : undefined}
-            className={cn(
-              "flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-full bg-raised px-5 text-sm transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 disabled:active:scale-100",
-              phone && "flex-1"
-            )}
-          >
-            <Dot color="var(--chart-vasooli)" />
-            {phone ? t("kind.PAYMENT_RECEIVED") : t("khata.writePayment")}
-          </button>
-          <button
-            type="button"
-            onClick={() => go("bolo")}
-            title={t("dash.speak")}
-            aria-label={t("dash.speak")}
-            className="flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-full border border-line px-5 text-sm text-muted-foreground transition-colors duration-150 hover:bg-raised hover:text-foreground"
-          >
-            <MicIcon size={16} />
-            {!phone && t("dash.speak")}
-          </button>
+          <Tip label={owed <= 0 ? t("khata.nothingOwed") : undefined}>
+            <span
+              tabIndex={owed <= 0 ? 0 : undefined}
+              className={cn("flex", phone && "flex-1")}
+            >
+              <button
+                type="button"
+                onClick={() => onWrite("PAYMENT_RECEIVED")}
+                disabled={owed <= 0}
+                className={cn(
+                  "flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-full bg-raised px-5 text-sm transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 disabled:active:scale-100",
+                  phone && "w-full"
+                )}
+              >
+                <Dot color="var(--chart-vasooli)" />
+                {phone ? t("kind.PAYMENT_RECEIVED") : t("khata.writePayment")}
+              </button>
+            </span>
+          </Tip>
+          <Tip label={t("dash.speak")}>
+            <button
+              type="button"
+              onClick={() => go("bolo")}
+              aria-label={t("dash.speak")}
+              className="flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-full border border-line px-5 text-sm text-muted-foreground transition-colors duration-150 hover:bg-raised hover:text-foreground"
+            >
+              <MicIcon size={16} />
+              {!phone && t("dash.speak")}
+            </button>
+          </Tip>
         </div>
         <div className={cn(!phone && "ml-auto text-right")}>
           <p
@@ -687,6 +706,9 @@ function EntryForm({
     setError("")
     try {
       await run(() => write.addEntry({ kind, party: who.id, amount: val }))
+      toast.success(
+        t(`toast.entry.${kind}`, { name: who.name, amount: inr(val) })
+      )
       onDone()
     } catch (err) {
       setError(errorText(err, t, { amount: inr(owed) }))
@@ -847,7 +869,12 @@ function CustomerForm({
           type="button"
           disabled={busy}
           onClick={() =>
-            save(() => write.deleteParty(item.id).then(() => null))
+            save(() =>
+              write
+                .deleteParty(item.id)
+                .then(toasted(t("toast.removed", { name: item.name })))
+                .then(() => null)
+            )
           }
           className="flex h-14 cursor-pointer items-center justify-center gap-2 rounded-full bg-danger-soft text-base font-medium text-black transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
         >
@@ -873,6 +900,7 @@ function CustomerForm({
             },
             item.id
           )
+          .then(toasted(t("toast.updated", { name: item.name })))
           .then((p) => p.id)
       )
     const name = String(f.get("name")).trim().replace(/\s+/g, " ")
@@ -886,6 +914,7 @@ function CustomerForm({
           party: party.id,
           amount: opening,
         })
+      toast.success(t("toast.added", { name }))
       return party.id
     }, name)
   }

@@ -4,9 +4,16 @@ import * as React from "react"
 import Image, { type StaticImageData } from "next/image"
 
 import { useI18n } from "@/components/app/i18n"
-import { EyeIcon, EyeOffIcon, LogoMark, MicIcon, MoonIcon, SunIcon } from "@/components/app/icons"
+import {
+  EyeIcon,
+  EyeOffIcon,
+  LogoMark,
+  MicIcon,
+  MoonIcon,
+  SunIcon,
+} from "@/components/app/icons"
 import { LanguagePicker } from "@/components/app/language-picker"
-import { Dot } from "@/components/app/parts"
+import { Dot, Tip } from "@/components/app/parts"
 import { useTheme } from "@/components/app/theme"
 import { Notch, notchRadius } from "@/components/notch"
 import type { Me } from "@/lib/api"
@@ -19,14 +26,23 @@ type Mode = "login" | "register"
 const MODES: Mode[] = ["login", "register"]
 
 // Lead Flow's /auth entrance: each block rises in, a little after the one above it.
-const RISE = "animate-in duration-500 fill-mode-both fade-in-0 slide-in-from-bottom-4 motion-reduce:animate-none"
+const RISE =
+  "animate-in duration-500 fill-mode-both fade-in-0 slide-in-from-bottom-4 motion-reduce:animate-none"
 
 const FIELD =
   "h-14 w-full rounded-full bg-raised px-[22px] text-base outline-none focus-visible:ring-2 focus-visible:ring-ring autofill:shadow-[inset_0_0_0_1000px_var(--raised)] autofill:[-webkit-text-fill-color:var(--foreground)]"
 
 /** Both modes' text share one grid cell, so a switch crossfades in place (4px rise, 200ms) without the
  *  width jumping. The hidden copy is inert. */
-function Crossfade({ mode, render, className }: { mode: Mode; render: (m: Mode) => React.ReactNode; className?: string }) {
+function Crossfade({
+  mode,
+  render,
+  className,
+}: {
+  mode: Mode
+  render: (m: Mode) => React.ReactNode
+  className?: string
+}) {
   return (
     <span className={cn("grid", className)}>
       {MODES.map((m) => (
@@ -47,7 +63,13 @@ function Crossfade({ mode, render, className }: { mode: Mode; render: (m: Mode) 
 
 /** Register-only fields grow in and out (grid rows, 400ms on the drawer curve). Collapsed content is
  *  inert and its inputs disabled, so it skips validation. */
-function Reveal({ open, children }: { open: boolean; children: React.ReactNode }) {
+function Reveal({
+  open,
+  children,
+}: {
+  open: boolean
+  children: React.ReactNode
+}) {
   return (
     <div
       inert={!open}
@@ -57,12 +79,22 @@ function Reveal({ open, children }: { open: boolean; children: React.ReactNode }
       )}
     >
       {/* overflow-clip with a margin keeps the focus ring visible */}
-      <div className="min-h-0 overflow-clip [overflow-clip-margin:4px]">{children}</div>
+      <div className="min-h-0 overflow-clip [overflow-clip-margin:4px]">
+        {children}
+      </div>
     </div>
   )
 }
 
-function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
+function Field({
+  id,
+  label,
+  children,
+}: {
+  id: string
+  label: string
+  children: React.ReactNode
+}) {
   return (
     <div className="flex flex-col gap-2 pb-[18px]">
       <label htmlFor={id} className="text-[13px] text-muted-foreground">
@@ -99,24 +131,35 @@ function PasswordInput({
         minLength={minLength}
         disabled={disabled}
         aria-invalid={invalid || undefined}
-        className={cn(FIELD, "pr-14", invalid && "ring-2 ring-[var(--red-ink)]")}
+        className={cn(
+          FIELD,
+          "pr-14",
+          invalid && "ring-2 ring-[var(--red-ink)]"
+        )}
       />
       {/* Open eye: hidden, can be shown. Closed eye: shown, can be hidden. Swaps instantly. */}
-      <button
-        type="button"
-        aria-pressed={visible}
-        aria-label={visible ? t("auth.hide") : t("auth.show")}
-        title={visible ? t("auth.hide") : t("auth.show")}
-        onClick={() => setVisible((v) => !v)}
-        className="absolute top-1/2 right-2 grid size-10 -translate-y-1/2 cursor-pointer place-items-center rounded-full text-muted-foreground hover:text-foreground"
-      >
-        {visible ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
-      </button>
+      <Tip label={visible ? t("auth.hide") : t("auth.show")}>
+        <button
+          type="button"
+          aria-pressed={visible}
+          aria-label={visible ? t("auth.hide") : t("auth.show")}
+          onClick={() => setVisible((v) => !v)}
+          className="absolute top-1/2 right-2 grid size-10 -translate-y-1/2 cursor-pointer place-items-center rounded-full text-muted-foreground hover:text-foreground"
+        >
+          {visible ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+        </button>
+      </Tip>
     </div>
   )
 }
 
-export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: Me) => void; onLanguage: (code: string) => void }) {
+export function LoginScreen({
+  onSignedIn,
+  onLanguage,
+}: {
+  onSignedIn: (session: Me) => void
+  onLanguage: (code: string) => void
+}) {
   const { t, code } = useI18n()
   const [theme, toggleTheme] = useTheme()
   const [mode, setMode] = React.useState<Mode>("login")
@@ -143,14 +186,22 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
     setBusy(true)
     setError("")
     const body = register
-      ? { shop_name: form.get("shop"), username: form.get("username"), password, preferred_language: code }
+      ? {
+          shop_name: form.get("shop"),
+          username: form.get("username"),
+          password,
+          preferred_language: code,
+        }
       : { username: form.get("username"), password }
     try {
-      const res = await fetch(register ? "/api/session?register" : "/api/session", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      })
+      const res = await fetch(
+        register ? "/api/session?register" : "/api/session",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      )
       const result = await res.json().catch(() => ({}))
       if (!res.ok) {
         const details = result?.error?.details ?? {}
@@ -180,16 +231,25 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
   // the panel's 32px rounding clips anything smaller sitting in its corner.
   const controls = (big: boolean) => (
     <>
-      <LanguagePicker value={code} onChange={onLanguage} compact className={big ? "size-16 bg-raised" : "bg-raised"} />
-      <button
-        type="button"
-        title={theme === "dark" ? t("header.light") : t("header.dark")}
-        aria-label={theme === "dark" ? t("header.light") : t("header.dark")}
-        onClick={toggleTheme}
-        className={cn("grid cursor-pointer place-items-center rounded-full bg-raised", big ? "size-16" : "size-[52px]")}
-      >
-        {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-      </button>
+      <LanguagePicker
+        value={code}
+        onChange={onLanguage}
+        compact
+        className={big ? "size-16 bg-raised" : "bg-raised"}
+      />
+      <Tip label={theme === "dark" ? t("header.light") : t("header.dark")}>
+        <button
+          type="button"
+          aria-label={theme === "dark" ? t("header.light") : t("header.dark")}
+          onClick={toggleTheme}
+          className={cn(
+            "grid cursor-pointer place-items-center rounded-full bg-raised",
+            big ? "size-16" : "size-[52px]"
+          )}
+        >
+          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+        </button>
+      </Tip>
     </>
   )
 
@@ -201,9 +261,13 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
             <div className="flex basis-full items-center justify-between gap-3">
               <span className="flex items-center gap-[10px]">
                 <LogoMark />
-                <span className="text-lg font-medium tracking-[-0.025em]">KhaataFlow</span>
+                <span className="text-lg font-medium tracking-[-0.025em]">
+                  KhaataFlow
+                </span>
               </span>
-              <span className="flex items-center gap-[10px] lg:hidden">{controls(false)}</span>
+              <span className="flex items-center gap-[10px] lg:hidden">
+                {controls(false)}
+              </span>
             </div>
             <div
               role="group"
@@ -226,21 +290,33 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-[5px] grid grid-cols-2 rounded-full bg-lime text-[15px] font-medium text-black transition-[clip-path] duration-250 ease-in-out motion-reduce:transition-none"
-                style={{ clipPath: register ? "inset(0 0 0 50% round 9999px)" : "inset(0 50% 0 0 round 9999px)" }}
+                style={{
+                  clipPath: register
+                    ? "inset(0 0 0 50% round 9999px)"
+                    : "inset(0 50% 0 0 round 9999px)",
+                }}
               >
-                <span className="flex items-center justify-center px-[22px]">{t("auth.tabLogin")}</span>
-                <span className="flex items-center justify-center px-[22px]">{t("auth.tabRegister")}</span>
+                <span className="flex items-center justify-center px-[22px]">
+                  {t("auth.tabLogin")}
+                </span>
+                <span className="flex items-center justify-center px-[22px]">
+                  {t("auth.tabRegister")}
+                </span>
               </div>
             </div>
           </div>
 
-          <h1 className={`text-[34px] leading-[1.2] font-light tracking-[-0.01em] ${RISE} delay-75`}>
+          <h1
+            className={`text-[34px] leading-[1.2] font-light tracking-[-0.01em] ${RISE} delay-75`}
+          >
             <Crossfade
               mode={mode}
               render={(m) => (
                 <>
                   {t(`auth.${m}Title`)}
-                  <span className="block text-muted-foreground">{t(`auth.${m}Sub`)}</span>
+                  <span className="block text-muted-foreground">
+                    {t(`auth.${m}Sub`)}
+                  </span>
                 </>
               )}
             />
@@ -262,7 +338,15 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
               </Field>
             </Reveal>
             <Field id="username" label={t("login.username")}>
-              <input id="username" name="username" required autoComplete="username" autoCapitalize="none" maxLength={150} className={FIELD} />
+              <input
+                id="username"
+                name="username"
+                required
+                autoComplete="username"
+                autoCapitalize="none"
+                maxLength={150}
+                className={FIELD}
+              />
             </Field>
             <Field id="password" label={t("login.password")}>
               <PasswordInput
@@ -274,11 +358,20 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
             </Field>
             <Reveal open={register}>
               <Field id="confirm" label={t("auth.confirm")}>
-                <PasswordInput id="confirm" autoComplete="new-password" minLength={8} invalid={mismatch} disabled={!register} />
+                <PasswordInput
+                  id="confirm"
+                  autoComplete="new-password"
+                  minLength={8}
+                  invalid={mismatch}
+                  disabled={!register}
+                />
               </Field>
             </Reveal>
             {error && (
-              <p role="alert" className="mb-3 rounded-[20px] bg-danger-soft/15 px-5 py-3 text-sm text-[var(--red-ink)]">
+              <p
+                role="alert"
+                className="mb-3 rounded-[20px] bg-danger-soft/15 px-5 py-3 text-sm text-[var(--red-ink)]"
+              >
                 {error}
               </p>
             )}
@@ -287,11 +380,17 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
               disabled={busy}
               className="mt-2 h-14 w-full cursor-pointer rounded-full bg-lime text-base font-medium text-black transition-[background-color,transform] duration-150 hover:bg-lime/85 active:scale-[0.98] disabled:cursor-default disabled:opacity-60"
             >
-              {busy ? t(register ? "auth.registerBusy" : "login.busy") : <Crossfade mode={mode} render={(m) => t(`auth.${m}Submit`)} />}
+              {busy ? (
+                t(register ? "auth.registerBusy" : "login.busy")
+              ) : (
+                <Crossfade mode={mode} render={(m) => t(`auth.${m}Submit`)} />
+              )}
             </button>
           </form>
 
-          <p className={`pt-2 text-[15px] text-muted-foreground ${RISE} delay-200`}>
+          <p
+            className={`pt-2 text-[15px] text-muted-foreground ${RISE} delay-200`}
+          >
             <Crossfade
               mode={mode}
               className="justify-items-center"
@@ -300,7 +399,9 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
                   {t(`auth.${m}SwitchPrompt`)}
                   <button
                     type="button"
-                    onClick={() => switchMode(m === "register" ? "login" : "register")}
+                    onClick={() =>
+                      switchMode(m === "register" ? "login" : "register")
+                    }
                     className="cursor-pointer font-medium text-foreground transition-colors hover:text-lime-ink"
                   >
                     {t(`auth.${m}SwitchAction`)}
@@ -314,10 +415,30 @@ export function LoginScreen({ onSignedIn, onLanguage }: { onSignedIn: (session: 
         {/* Picture panel: the photo (when supplied) with KhaataFlow's own cards over it, and the theme toggle
             in the cut-out corner. */}
         <section className="relative hidden min-h-[640px] overflow-hidden rounded-[32px] bg-deep [--photo-edge:color-mix(in_oklch,var(--lime)_55%,var(--card))] lg:block">
-          {PHOTO && <Image src={PHOTO} alt="" fill priority placeholder="blur" sizes="(min-width: 1024px) 55vw, 0px" className="object-cover object-[44%_center]" />}
+          {PHOTO && (
+            <Image
+              src={PHOTO}
+              alt=""
+              fill
+              priority
+              placeholder="blur"
+              sizes="(min-width: 1024px) 55vw, 0px"
+              className="object-cover object-[44%_center]"
+            />
+          )}
           <ExampleCards />
-          <div aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit] ring-2 ring-(--photo-edge) ring-inset" />
-          <Notch corner="tr" edge="var(--photo-edge)" r={notchRadius(64)} gap={10} bg="var(--card)" className="z-10 flex items-center gap-[10px]">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-[inherit] ring-2 ring-(--photo-edge) ring-inset"
+          />
+          <Notch
+            corner="tr"
+            edge="var(--photo-edge)"
+            r={notchRadius(64)}
+            gap={10}
+            bg="var(--card)"
+            className="z-10 flex items-center gap-[10px]"
+          >
             {controls(true)}
           </Notch>
         </section>
@@ -341,10 +462,14 @@ function ExampleCards() {
   const { t } = useI18n()
   return (
     <div role="img" aria-label={t("auth.exampleLabel")}>
-      <div className={`absolute right-6 bottom-[112px] flex w-[300px] max-w-[calc(100%-48px)] flex-col gap-3 rounded-[24px] bg-card/80 p-4 backdrop-blur-xl ${RISE} delay-500`}>
+      <div
+        className={`absolute right-6 bottom-[112px] flex w-[300px] max-w-[calc(100%-48px)] flex-col gap-3 rounded-[24px] bg-card/80 p-4 backdrop-blur-xl ${RISE} delay-500`}
+      >
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-[15px] font-medium">{t("auth.cardTitle")}</span>
-          <span className="text-xs text-muted-foreground">{t("auth.example")}</span>
+          <span className="text-xs text-muted-foreground">
+            {t("auth.example")}
+          </span>
         </div>
         <div className="flex gap-2">
           <span className="flex-1 rounded-[16px] bg-raised px-3 py-2">
@@ -364,26 +489,52 @@ function ExampleCards() {
         </div>
         <div className="flex h-12 items-end gap-1.5 px-1">
           {WEEK.map(([u, v], i) => (
-            <span key={i} className="flex h-full flex-1 items-end justify-center gap-0.5">
-              <span className="w-1.5 rounded-t-full rounded-b-[2px] bg-[var(--chart-udhaar)]" style={{ height: `${u}%` }} />
-              <span className="w-1.5 rounded-t-full rounded-b-[2px] bg-[var(--chart-vasooli)]" style={{ height: `${v}%` }} />
+            <span
+              key={i}
+              className="flex h-full flex-1 items-end justify-center gap-0.5"
+            >
+              <span
+                className="w-1.5 rounded-t-full rounded-b-[2px] bg-[var(--chart-udhaar)]"
+                style={{ height: `${u}%` }}
+              />
+              <span
+                className="w-1.5 rounded-t-full rounded-b-[2px] bg-[var(--chart-vasooli)]"
+                style={{ height: `${v}%` }}
+              />
             </span>
           ))}
         </div>
       </div>
 
-      <div className={`absolute top-6 right-[176px] left-6 flex max-w-[420px] flex-col gap-2 ${RISE} delay-300`}>
+      <div
+        className={`absolute top-6 right-[176px] left-6 flex max-w-[420px] flex-col gap-2 ${RISE} delay-300`}
+      >
         <div className="flex items-center gap-2.5 self-start rounded-[20px] bg-raised px-4 py-3 text-[15px]">
           <MicIcon size={16} />“{t("login.exampleSaid")}”
         </div>
-        <div className="self-end rounded-[20px] bg-paper px-4 py-3 text-[15px] text-black">{t("login.exampleReply")}</div>
+        <div className="self-end rounded-[20px] bg-paper px-4 py-3 text-[15px] text-black">
+          {t("login.exampleReply")}
+        </div>
       </div>
 
-      <Notch corner="bl" edge="var(--photo-edge)" r={notchRadius(76)} gap={10} bg="var(--card)" className="z-10 max-w-[calc(100%-60px)]">
-        <div className={`flex items-center gap-6 rounded-[28px] bg-background py-4 pr-4 pl-[22px] ${RISE} delay-700`}>
+      <Notch
+        corner="bl"
+        edge="var(--photo-edge)"
+        r={notchRadius(76)}
+        gap={10}
+        bg="var(--card)"
+        className="z-10 max-w-[calc(100%-60px)]"
+      >
+        <div
+          className={`flex items-center gap-6 rounded-[28px] bg-background py-4 pr-4 pl-[22px] ${RISE} delay-700`}
+        >
           <span className="flex min-w-0 flex-col gap-0.5 whitespace-nowrap">
-            <span className="text-base font-medium">{t("auth.notchTitle")}</span>
-            <span className="text-[13px] text-muted-foreground">{t("auth.notchSub")}</span>
+            <span className="text-base font-medium">
+              {t("auth.notchTitle")}
+            </span>
+            <span className="text-[13px] text-muted-foreground">
+              {t("auth.notchSub")}
+            </span>
           </span>
           <span className="flex flex-none">
             {["S", "V", "G"].map((initial, i) => (
@@ -394,7 +545,10 @@ function ExampleCards() {
                 {initial}
                 <span
                   className="absolute right-0 bottom-0 size-2.5 rounded-full shadow-[0_0_0_2px_var(--background)]"
-                  style={{ background: i === 1 ? "var(--chart-udhaar)" : "var(--chart-vasooli)" }}
+                  style={{
+                    background:
+                      i === 1 ? "var(--chart-udhaar)" : "var(--chart-vasooli)",
+                  }}
                 />
               </span>
             ))}

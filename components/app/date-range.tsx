@@ -5,6 +5,7 @@ import { Popover } from "radix-ui"
 
 import { useI18n, type T } from "@/components/app/i18n"
 import { CalendarIcon, ChevronIcon } from "@/components/app/icons"
+import { Tip } from "@/components/app/parts"
 import { isoDay, parseDay } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
@@ -142,31 +143,33 @@ export function DateRange({
 
           <div>
             <div className="mb-2.5 flex items-center justify-between px-1">
-              <button
-                type="button"
-                title={t("range.prevMonth")}
-                aria-label={t("range.prevMonth")}
-                onClick={() => step(-1)}
-                className="grid size-8 cursor-pointer place-items-center rounded-full hover:bg-raised"
-              >
-                <ChevronIcon left size={14} />
-              </button>
+              <Tip label={t("range.prevMonth")}>
+                <button
+                  type="button"
+                  aria-label={t("range.prevMonth")}
+                  onClick={() => step(-1)}
+                  className="grid size-8 cursor-pointer place-items-center rounded-full hover:bg-raised"
+                >
+                  <ChevronIcon left size={14} />
+                </button>
+              </Tip>
               <p className="text-sm">
                 {new Date(month.y, month.m).toLocaleDateString(locale, {
                   month: "long",
                   year: "numeric",
                 })}
               </p>
-              <button
-                type="button"
-                title={t("range.nextMonth")}
-                aria-label={t("range.nextMonth")}
-                disabled={atLatest}
-                onClick={() => step(1)}
-                className="grid size-8 cursor-pointer place-items-center rounded-full hover:bg-raised disabled:cursor-default disabled:opacity-30"
-              >
-                <ChevronIcon size={14} />
-              </button>
+              <Tip label={t("range.nextMonth")}>
+                <button
+                  type="button"
+                  aria-label={t("range.nextMonth")}
+                  disabled={atLatest}
+                  onClick={() => step(1)}
+                  className="grid size-8 cursor-pointer place-items-center rounded-full hover:bg-raised disabled:cursor-default disabled:opacity-30"
+                >
+                  <ChevronIcon size={14} />
+                </button>
+              </Tip>
             </div>
             <div
               className="grid grid-cols-7 gap-y-1 text-center"

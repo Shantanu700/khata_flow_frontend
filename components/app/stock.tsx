@@ -1,7 +1,9 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 import { Dialog, Select } from "radix-ui"
+import { MinusIcon, PlusIcon } from "lucide-react"
 
 import {
   SIZE,
@@ -45,7 +47,7 @@ import {
   type View,
 } from "@/components/app/ledger"
 import { useListMotion } from "@/components/app/list-motion"
-import { CornerButton, Dot } from "@/components/app/parts"
+import { CornerButton, Dot, Tip, toasted } from "@/components/app/parts"
 import { useShell } from "@/components/app/shell"
 import { Segmented } from "@/components/segmented"
 import type { Product } from "@/lib/api"
@@ -54,7 +56,7 @@ import { cn } from "@/lib/utils"
 const COLS =
   "grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_110px] gap-3"
 const PCOLS =
-  "grid grid-cols-[minmax(0,1.6fr)_90px_90px_minmax(0,1.4fr)_36px] gap-4"
+  "grid grid-cols-[minmax(0,1.6fr)_90px_90px_minmax(0,1.4fr)_124px] gap-4"
 const ALL = "all"
 
 type Sort = "-id" | "-quantity" | "product__name"
@@ -82,6 +84,11 @@ export function StockScreen() {
   const [page, setPage] = React.useState(1)
   const [view, setView] = React.useState<View>("cards")
   const [editing, setEditing] = React.useState<Product | "new" | null>(null)
+  const [moving, setMoving] = React.useState<{
+    item: Product
+    kind: Move
+  } | null>(null)
+  const move = (item: Product, kind: Move) => setMoving({ item, kind })
   const { phone } = useLayout()
   const q = useDebounced(query.trim())
   const size = view === "cards" ? SIZE.cards : SIZE.table
@@ -197,15 +204,17 @@ export function StockScreen() {
                     </span>
                   </span>
                 </span>
-                <button
-                  type="button"
-                  title={t("stock.edit", { name: p.name })}
-                  aria-label={t("stock.edit", { name: p.name })}
-                  onClick={() => setEditing(p)}
-                  className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-raised"
-                >
-                  <PencilIcon size={14} />
-                </button>
+                <Steps p={p} onMove={move} className="bg-raised" />
+                <Tip label={t("stock.edit", { name: p.name })}>
+                  <button
+                    type="button"
+                    aria-label={t("stock.edit", { name: p.name })}
+                    onClick={() => setEditing(p)}
+                    className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-raised"
+                  >
+                    <PencilIcon size={14} />
+                  </button>
+                </Tip>
               </div>
             ))}
           </div>
@@ -259,15 +268,23 @@ export function StockScreen() {
                     {status(p)}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  title={t("stock.edit", { name: p.name })}
-                  aria-label={t("stock.edit", { name: p.name })}
-                  onClick={() => setEditing(p)}
-                  className="grid size-9 cursor-pointer place-items-center rounded-full bg-raised group-hover:bg-card coarse:size-11"
-                >
-                  <PencilIcon size={14} />
-                </button>
+                <span className="flex justify-end gap-1.5">
+                  <Steps
+                    p={p}
+                    onMove={move}
+                    className="bg-raised group-hover:bg-card"
+                  />
+                  <Tip label={t("stock.edit", { name: p.name })}>
+                    <button
+                      type="button"
+                      aria-label={t("stock.edit", { name: p.name })}
+                      onClick={() => setEditing(p)}
+                      className="grid size-9 cursor-pointer place-items-center rounded-full bg-raised group-hover:bg-card coarse:size-11"
+                    >
+                      <PencilIcon size={14} />
+                    </button>
+                  </Tip>
+                </span>
               </div>
             ))}
           </div>
@@ -294,6 +311,12 @@ export function StockScreen() {
                   <span className="text-sm text-muted-foreground">
                     {t("stock.left")}
                   </span>
+                  <Steps
+                    p={p}
+                    onMove={move}
+                    className="size-11 bg-card"
+                    wrapClassName="ml-auto self-center"
+                  />
                 </div>
                 <div className="mt-auto flex flex-col gap-2">
                   <Meter p={p} className="h-2 bg-card" />
@@ -346,8 +369,183 @@ export function StockScreen() {
           />
         )}
       </FormDialog>
+      <FormDialog open={moving !== null} onClose={() => setMoving(null)}>
+        {moving !== null && (
+          <MoveForm
+            key={moving.item.id}
+            item={moving.item}
+            start={moving.kind}
+            onDone={() => setMoving(null)}
+          />
+        )}
+      </FormDialog>
       <StockLedger />
     </div>
+  )
+}
+
+type Move = "STOCK_IN" | "STOCK_OUT"
+
+/** − and + for an item: open the stock out / stock in form. */
+function Steps({
+  p,
+  onMove,
+  className,
+  wrapClassName,
+}: {
+  p: Product
+  onMove: (p: Product, kind: Move) => void
+  className?: string
+  wrapClassName?: string
+}) {
+  const { t } = useI18n()
+  return (
+    <span className={cn("flex shrink-0 gap-1.5", wrapClassName)}>
+      {(["STOCK_OUT", "STOCK_IN"] as const).map((k) => (
+        <Tip key={k} label={t(`kind.${k}`)}>
+          <button
+            type="button"
+            aria-label={`${t(`kind.${k}`)}: ${p.name}`}
+            onClick={() => onMove(p, k)}
+            className={cn(
+              "grid size-9 cursor-pointer place-items-center rounded-full transition-transform duration-150 active:scale-[0.94] coarse:size-11",
+              className
+            )}
+          >
+            {k === "STOCK_IN" ? (
+              <PlusIcon size={16} />
+            ) : (
+              <MinusIcon size={16} />
+            )}
+          </button>
+        </Tip>
+      ))}
+    </span>
+  )
+}
+
+// Quantities to three decimals, so 2.3 − 0.1 reads 2.2.
+const round3 = (n: number) => Math.round(n * 1000) / 1000
+
+function MoveForm({
+  item,
+  start,
+  onDone,
+}: {
+  item: Product
+  start: Move
+  onDone: () => void
+}) {
+  const { t } = useI18n()
+  const { run } = useShell()
+  const [kind, setKind] = React.useState(start)
+  const [amount, setAmount] = React.useState("")
+  const [error, setError] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+  const level = Number(item.stock_level ?? 0)
+  const val = Math.max(0, Number(amount) || 0)
+  const out = kind === "STOCK_OUT"
+  const over = out && val > level
+  const unit = t(`unit.${item.unit}.short`)
+  const moves = (["STOCK_IN", "STOCK_OUT"] as const).map((k) => ({
+    value: k,
+    label: t(`kind.${k}`),
+  }))
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (val <= 0 || over) return
+    setBusy(true)
+    setError("")
+    try {
+      await run(() => write.addEntry({ kind, product: item.id, quantity: val }))
+      toast.success(
+        t(`toast.entry.${kind}`, {
+          name: item.name,
+          qty: `${qty(val)} ${unit}`,
+        })
+      )
+      onDone()
+    } catch (err) {
+      setError(errorText(err, t))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-5">
+      <div>
+        <Dialog.Title className="text-2xl font-normal">
+          {item.name}
+        </Dialog.Title>
+        <Dialog.Description className="mt-1 text-sm text-muted-foreground">
+          {t("stock.meter", {
+            level: `${qty(level)} ${unit}`,
+            threshold: qty(item.low_stock_threshold),
+          })}
+        </Dialog.Description>
+      </div>
+      <Segmented
+        label={t("moves.title")}
+        options={moves}
+        value={kind}
+        onChange={setKind}
+        className="w-full bg-raised p-1.5"
+        itemClassName="flex-1 justify-center"
+      />
+      <label className="flex flex-col gap-2">
+        <span className="text-[13px] text-muted-foreground">
+          {t("col.quantity")}
+        </span>
+        <span
+          className={cn(
+            FIELD,
+            "flex items-center gap-2 focus-within:ring-2 focus-within:ring-ring",
+            over &&
+              "ring-2 ring-[var(--red-ink)] focus-within:ring-[var(--red-ink)]"
+          )}
+        >
+          <input
+            name="quantity"
+            type="number"
+            required
+            min={0.001}
+            max={100000}
+            step="any"
+            inputMode="decimal"
+            autoFocus
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0"
+            aria-invalid={over}
+            className="min-w-0 flex-1 [appearance:textfield] bg-transparent text-2xl font-light outline-none placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <span className="text-muted-foreground">{unit}</span>
+        </span>
+      </label>
+      <p
+        role={over ? "alert" : undefined}
+        aria-live="polite"
+        className={cn(
+          "flex justify-between rounded-[20px] bg-background px-5 py-4 text-sm",
+          over ? "text-[var(--red-ink)]" : "text-muted-foreground"
+        )}
+      >
+        {over ? (
+          t("error.NEGATIVE_STOCK")
+        ) : (
+          <>
+            <span>{t("stock.after")}</span>
+            <span className="text-foreground tabular-nums">
+              {qty(round3(level + (out ? -val : val)))} {unit}
+            </span>
+          </>
+        )}
+      </p>
+      <FormError error={error} />
+      <FormActions busy={busy} submit={t(`kind.${kind}`)} />
+    </form>
   )
 }
 
@@ -658,7 +856,13 @@ function ProductForm({
         <button
           type="button"
           disabled={busy}
-          onClick={() => save(() => write.deleteProduct(item.id))}
+          onClick={() =>
+            save(() =>
+              write
+                .deleteProduct(item.id)
+                .then(toasted(t("toast.removed", { name: item.name })))
+            )
+          }
           className="flex h-14 cursor-pointer items-center justify-center gap-2 rounded-full bg-danger-soft text-base font-medium text-black transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
         >
           <TrashIcon size={18} />
@@ -673,16 +877,18 @@ function ProductForm({
     const threshold = Number(f.get("thr"))
     if (item)
       return save(() =>
-        write.saveProduct(
-          {
-            name: item.name,
-            aliases: item.aliases ?? [],
-            unit,
-            low_stock_threshold: threshold,
-            is_active: item.is_active,
-          },
-          item.id
-        )
+        write
+          .saveProduct(
+            {
+              name: item.name,
+              aliases: item.aliases ?? [],
+              unit,
+              low_stock_threshold: threshold,
+              is_active: item.is_active,
+            },
+            item.id
+          )
+          .then(toasted(t("toast.updated", { name: item.name })))
       )
     const name = String(f.get("name")).trim().replace(/\s+/g, " ")
     if (!name) return setError(t("form.nameMissing"))
@@ -701,6 +907,7 @@ function ProductForm({
           product: product.id,
           quantity: opening,
         })
+      toast.success(t("toast.added", { name }))
     })
   }
 

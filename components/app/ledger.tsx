@@ -13,7 +13,7 @@ import {
 } from "@/components/app/icons"
 import { useI18n } from "@/components/app/i18n"
 import { useLayout } from "@/components/app/layout"
-import { CornerButton } from "@/components/app/parts"
+import { CornerButton, Tip } from "@/components/app/parts"
 import { Notch, notchRadius } from "@/components/notch"
 import { Segmented } from "@/components/segmented"
 import { cn } from "@/lib/utils"
@@ -145,25 +145,26 @@ export function RoundButton({
 } & React.ComponentProps<"button">) {
   const { phone } = useLayout()
   return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      {...props}
-      className={cn(
-        phone ? "size-11" : "size-[52px]",
-        "relative grid shrink-0 cursor-pointer place-items-center rounded-full bg-card transition-transform duration-150 active:scale-[0.94]",
-        className
-      )}
-    >
-      {children}
-      {active && (
-        <span
-          aria-hidden
-          className="absolute top-2.5 right-2.5 size-2 rounded-full bg-lime"
-        />
-      )}
-    </button>
+    <Tip label={title}>
+      <button
+        type="button"
+        aria-label={title}
+        {...props}
+        className={cn(
+          phone ? "size-11" : "size-[52px]",
+          "relative grid shrink-0 cursor-pointer place-items-center rounded-full bg-card transition-transform duration-150 active:scale-[0.94]",
+          className
+        )}
+      >
+        {children}
+        {active && (
+          <span
+            aria-hidden
+            className="absolute top-2.5 right-2.5 size-2 rounded-full bg-lime"
+          />
+        )}
+      </button>
+    </Tip>
   )
 }
 
@@ -330,19 +331,20 @@ function PageButton({
   children: React.ReactNode
 }) {
   return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        "grid size-10 cursor-pointer place-items-center rounded-full bg-lime text-black transition-[background-color,color,transform] duration-150 active:scale-[0.94]",
-        "disabled:cursor-default disabled:opacity-40 disabled:active:scale-100"
-      )}
-    >
-      {children}
-    </button>
+    <Tip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+        className={cn(
+          "grid size-10 cursor-pointer place-items-center rounded-full bg-lime text-black transition-[background-color,color,transform] duration-150 active:scale-[0.94]",
+          "disabled:cursor-default disabled:opacity-40 disabled:active:scale-100"
+        )}
+      >
+        {children}
+      </button>
+    </Tip>
   )
 }
 
@@ -399,18 +401,19 @@ export function AddButton({
 }) {
   const { phone } = useLayout()
   return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      onClick={onClick}
-      className={cn(
-        phone ? "size-11" : "size-[52px]",
-        "grid shrink-0 cursor-pointer place-items-center rounded-full bg-lime text-black transition-[background-color,transform] duration-150 hover:bg-lime/85 active:scale-[0.94]"
-      )}
-    >
-      <PlusIcon size={20} />
-    </button>
+    <Tip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        className={cn(
+          phone ? "size-11" : "size-[52px]",
+          "grid shrink-0 cursor-pointer place-items-center rounded-full bg-lime text-black transition-[background-color,transform] duration-150 hover:bg-lime/85 active:scale-[0.94]"
+        )}
+      >
+        <PlusIcon size={20} />
+      </button>
+    </Tip>
   )
 }
 

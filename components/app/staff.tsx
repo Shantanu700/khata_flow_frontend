@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { toast } from "sonner"
 import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import { Dialog } from "radix-ui"
@@ -35,7 +36,7 @@ import {
   pagesOf,
   type View,
 } from "@/components/app/ledger"
-import { CornerButton, Dot, Swap } from "@/components/app/parts"
+import { CornerButton, Dot, Swap, Tip, toasted } from "@/components/app/parts"
 import { useShell } from "@/components/app/shell"
 import { Segmented } from "@/components/segmented"
 import { inr, isoDay, parseDay, type Party } from "@/lib/api"
@@ -108,7 +109,15 @@ export function StaffScreen() {
       s.present_today
         ? write.undo(s.present_today)
         : write.addEntry({ kind: "ATTENDANCE", party: s.id })
-    ).catch(() => undefined)
+    )
+      .then(
+        toasted(
+          t(s.present_today ? "toast.unmarked" : "toast.entry.ATTENDANCE", {
+            name: s.name,
+          })
+        )
+      )
+      .catch((e) => toast.error(errorText(e, t)))
 
   return (
     <div className={cn("flex flex-col", !compact && "h-full")}>
@@ -270,15 +279,16 @@ export function StaffScreen() {
                 <span className="text-right text-[15px] font-light tabular-nums">
                   {inr(salaryLeft(s))}
                 </span>
-                <button
-                  type="button"
-                  title={t("stock.edit", { name: s.name })}
-                  aria-label={t("stock.edit", { name: s.name })}
-                  onClick={() => setEditing(s)}
-                  className="relative z-10 grid size-9 cursor-pointer place-items-center rounded-full bg-raised group-hover:bg-card coarse:size-11"
-                >
-                  <PencilIcon size={14} />
-                </button>
+                <Tip label={t("stock.edit", { name: s.name })}>
+                  <button
+                    type="button"
+                    aria-label={t("stock.edit", { name: s.name })}
+                    onClick={() => setEditing(s)}
+                    className="relative z-10 grid size-9 cursor-pointer place-items-center rounded-full bg-raised group-hover:bg-card coarse:size-11"
+                  >
+                    <PencilIcon size={14} />
+                  </button>
+                </Tip>
               </div>
             ))}
           </div>
@@ -511,26 +521,29 @@ function StaffLedger({ person }: { person: Party }) {
               </span>
             ))}
           {days.map((x, i) => (
-            <span
+            <Tip
               key={x.day}
-              data-tl-dot
-              style={i === 0 ? { gridColumnStart: lead + 1 } : undefined}
-              title={
+              label={
                 x.mark === "future" ? undefined : t(`staff.mark.${x.mark}`)
               }
-              className={cn(
-                "mx-auto grid aspect-square w-full max-w-8 place-items-center rounded-full text-[13px] tabular-nums",
-                x.mark === "present" && "bg-cyan text-black",
-                x.mark === "absent" && "bg-raised",
-                x.mark === "none" &&
-                  "border border-dashed border-line text-muted-foreground",
-                x.mark === "future" && "text-muted-foreground opacity-40",
-                x.iso === today &&
-                  "ring-1 ring-lime ring-offset-2 ring-offset-background"
-              )}
             >
-              {x.day}
-            </span>
+              <span
+                data-tl-dot
+                style={i === 0 ? { gridColumnStart: lead + 1 } : undefined}
+                className={cn(
+                  "mx-auto grid aspect-square w-full max-w-8 place-items-center rounded-full text-[13px] tabular-nums",
+                  x.mark === "present" && "bg-cyan text-black",
+                  x.mark === "absent" && "bg-raised",
+                  x.mark === "none" &&
+                    "border border-dashed border-line text-muted-foreground",
+                  x.mark === "future" && "text-muted-foreground opacity-40",
+                  x.iso === today &&
+                    "ring-1 ring-lime ring-offset-2 ring-offset-background"
+                )}
+              >
+                {x.day}
+              </span>
+            </Tip>
           ))}
         </div>
         <div className="flex flex-wrap gap-4 px-1 text-xs text-muted-foreground">
@@ -610,16 +623,17 @@ function MonthButton({
   children: React.ReactNode
 }) {
   return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="grid size-10 cursor-pointer place-items-center rounded-full bg-lime text-black transition-transform duration-150 active:scale-[0.94] disabled:cursor-default disabled:opacity-40"
-    >
-      {children}
-    </button>
+    <Tip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+        className="grid size-10 cursor-pointer place-items-center rounded-full bg-lime text-black transition-transform duration-150 active:scale-[0.94] disabled:cursor-default disabled:opacity-40"
+      >
+        {children}
+      </button>
+    </Tip>
   )
 }
 
@@ -686,13 +700,16 @@ function StaffCard({
           <div className="grid grid-cols-[repeat(14,minmax(0,1fr))] gap-1">
             {lastDays(14).map((iso, i) => (
               <div key={iso} className="flex flex-col items-center gap-1.5">
-                <span
-                  title={`${parseDay(iso).toLocaleDateString(locale, { day: "numeric", month: "short" })}: ${t(present.has(iso) ? "staff.mark.present" : "staff.mark.absent")}`}
-                  className={cn(
-                    "aspect-square w-full max-w-6 rounded-full",
-                    present.has(iso) ? "bg-cyan" : "bg-card"
-                  )}
-                />
+                <Tip
+                  label={`${parseDay(iso).toLocaleDateString(locale, { day: "numeric", month: "short" })}: ${t(present.has(iso) ? "staff.mark.present" : "staff.mark.absent")}`}
+                >
+                  <span
+                    className={cn(
+                      "aspect-square w-full max-w-6 rounded-full",
+                      present.has(iso) ? "bg-cyan" : "bg-card"
+                    )}
+                  />
+                </Tip>
                 <span className="text-[10px] text-muted-foreground short:hidden">
                   {i === 13 ? t("day.today") : parseDay(iso).getDate()}
                 </span>
@@ -701,38 +718,45 @@ function StaffCard({
           </div>
         </div>
         <div className="relative z-10 flex flex-wrap gap-[10px] self-start">
-          <button
-            type="button"
-            onClick={onPresent}
-            aria-pressed={here}
-            title={here ? t("staff.unmarkTitle") : t("staff.markTitle")}
-            className={cn(
-              "h-10 cursor-pointer rounded-full px-4 text-sm transition-colors duration-150 short:h-9",
-              here ? "bg-lime text-black" : "bg-card"
-            )}
-          >
-            <Swap on={here} off={t("staff.mark")}>
-              {t("staff.marked")}
-            </Swap>
-          </button>
-          <button
-            type="button"
-            onClick={() => onPay("STAFF_ADVANCE")}
-            disabled={left <= 0}
-            title={left <= 0 ? t("staff.salaryGone") : undefined}
-            className="h-10 cursor-pointer rounded-full bg-card px-4 text-sm disabled:cursor-default disabled:opacity-40 short:h-9"
-          >
-            {t("staff.gaveAdvance")}
-          </button>
-          <button
-            type="button"
-            onClick={() => onPay("SALARY_PAID")}
-            disabled={left <= 0}
-            title={left <= 0 ? t("staff.salaryGone") : undefined}
-            className="h-10 cursor-pointer rounded-full bg-card px-4 text-sm disabled:cursor-default disabled:opacity-40 short:h-9"
-          >
-            {t("staff.paidSalary")}
-          </button>
+          <Tip label={here ? t("staff.unmarkTitle") : t("staff.markTitle")}>
+            <button
+              type="button"
+              onClick={onPresent}
+              aria-pressed={here}
+              className={cn(
+                "h-10 cursor-pointer rounded-full px-4 text-sm transition-colors duration-150 short:h-9",
+                here ? "bg-lime text-black" : "bg-card"
+              )}
+            >
+              <Swap on={here} off={t("staff.mark")}>
+                {t("staff.marked")}
+              </Swap>
+            </button>
+          </Tip>
+          <Tip label={left <= 0 ? t("staff.salaryGone") : undefined}>
+            <span tabIndex={left <= 0 ? 0 : undefined} className="inline-flex">
+              <button
+                type="button"
+                onClick={() => onPay("STAFF_ADVANCE")}
+                disabled={left <= 0}
+                className="h-10 cursor-pointer rounded-full bg-card px-4 text-sm disabled:cursor-default disabled:opacity-40 short:h-9"
+              >
+                {t("staff.gaveAdvance")}
+              </button>
+            </span>
+          </Tip>
+          <Tip label={left <= 0 ? t("staff.salaryGone") : undefined}>
+            <span tabIndex={left <= 0 ? 0 : undefined} className="inline-flex">
+              <button
+                type="button"
+                onClick={() => onPay("SALARY_PAID")}
+                disabled={left <= 0}
+                className="h-10 cursor-pointer rounded-full bg-card px-4 text-sm disabled:cursor-default disabled:opacity-40 short:h-9"
+              >
+                {t("staff.paidSalary")}
+              </button>
+            </span>
+          </Tip>
         </div>
       </div>
       <CornerButton
@@ -821,6 +845,7 @@ function StaffForm({
           person?.id
         )
       )
+      toast.success(t(person ? "toast.updated" : "toast.added", { name }))
       onDone()
     } catch (err) {
       setError(errorText(err, t, { name }))
@@ -909,6 +934,9 @@ function PayForm({
     setError("")
     try {
       await run(() => write.addEntry({ kind, party: person.id, amount: val }))
+      toast.success(
+        t(`toast.entry.${kind}`, { name: person.name, amount: inr(val) })
+      )
       onDone()
     } catch (err) {
       setError(errorText(err, t, { amount: inr(left) }))
