@@ -467,6 +467,13 @@ export interface components {
             balance: number;
             photo_key: string | null;
         };
+        DueAge: {
+            /** @description Days since the customer's last udhaar or payment, up to this; null means older. */
+            max_days: number | null;
+            count: number;
+            /** Format: double */
+            amount: number;
+        };
         /**
          * @description ModelSerializer with per-call `fields=[...]` / `exclude=[...]` subsetting (ModelBase.BASE_MODEL_FIELDS
          *     are always kept) and `dynamic_keys`: related attributes flattened into read-only top-level fields,
@@ -838,6 +845,8 @@ export interface components {
         Summary: {
             /** Format: double */
             total_outstanding: number;
+            /** @description What customers owe, by how long their khata has been quiet. */
+            dues_by_age: components["schemas"]["DueAge"][];
             owing_count: number;
             customer_count: number;
             top_debtors: components["schemas"]["Debtor"][];

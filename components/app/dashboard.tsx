@@ -36,6 +36,26 @@ export function DashboardScreen() {
   const top = debtors.data?.results ?? []
   const most = Math.max(...top.map((d) => d.balance ?? 0), 1)
 
+  const stats = [
+    {
+      roll: "dash-week-credit",
+      value: inr(s?.week_credit),
+      label: t("dash.weekCredit"),
+      dot: "var(--chart-udhaar)",
+    },
+    {
+      roll: "dash-week-payment",
+      value: inr(s?.week_payment),
+      label: t("dash.weekPayment"),
+      dot: "var(--chart-vasooli)",
+    },
+    {
+      roll: "dash-entries",
+      value: String(s?.entry_count_14d ?? 0),
+      label: t("dash.entries14"),
+    },
+  ]
+
   if (summary.isError) return <LoadError onRetry={() => summary.refetch()} />
   if (summary.isPending) return <Loading />
 
@@ -56,45 +76,46 @@ export function DashboardScreen() {
             phone ? "p-5" : "p-7"
           )}
         >
-          <div>
-            <p
-              data-roll="dash-total-label"
-              className="text-sm text-muted-foreground"
-            >
-              {t("dash.totalLabel", { count: s?.owing_count ?? 0 })}
-            </p>
-            <p
-              data-roll="big"
-              className="mt-2 leading-none font-light tracking-[-0.04em]"
-              style={{ fontSize: big }}
-            >
-              {inr(s?.total_outstanding)}
-            </p>
-          </div>
-          <div
-            className={cn(
-              "flex flex-wrap",
-              phone ? "gap-x-6 gap-y-3 pr-[88px]" : "gap-10 pr-[120px]"
+          <div className="flex gap-8">
+            <div className="min-w-0 flex-1">
+              <p
+                data-roll="dash-total-label"
+                className="text-sm text-muted-foreground"
+              >
+                {t("dash.totalLabel", { count: s?.owing_count ?? 0 })}
+              </p>
+              <p
+                data-roll="big"
+                className="mt-2 leading-none font-light tracking-[-0.04em]"
+                style={{ fontSize: big }}
+              >
+                {inr(s?.total_outstanding)}
+              </p>
+            </div>
+            {!phone && (
+              <div className="flex shrink-0 flex-col gap-4">
+                {stats.map((x) => (
+                  <div key={x.roll} className="border-l border-line pl-5">
+                    <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                      {x.dot && <Dot color={x.dot} size={8} />}
+                      {x.label}
+                    </p>
+                    <p data-roll={x.roll} className="text-[28px] font-light">
+                      {x.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
             )}
-          >
-            <Stat
-              roll="dash-week-credit"
-              value={inr(s?.week_credit)}
-              label={t("dash.weekCredit")}
-              dot="var(--chart-udhaar)"
-            />
-            <Stat
-              roll="dash-week-payment"
-              value={inr(s?.week_payment)}
-              label={t("dash.weekPayment")}
-              dot="var(--chart-vasooli)"
-            />
-            <Stat
-              roll="dash-entries"
-              value={String(s?.entry_count_14d ?? 0)}
-              label={t("dash.entries14")}
-            />
           </div>
+          <DueBars ages={s?.dues_by_age ?? []} />
+          {phone && (
+            <div className="flex flex-wrap gap-x-6 gap-y-3 pr-[88px]">
+              {stats.map((x) => (
+                <Stat key={x.roll} {...x} />
+              ))}
+            </div>
+          )}
           <CornerButton
             corner="br"
             flip="main-br"
@@ -335,6 +356,75 @@ export function DashboardScreen() {
           })}
         </div>
       </section>
+    </div>
+  )
+}
+
+/** Lead Flow's pipeline bars: what is owed, by how long each khata has been quiet. Older dues are the ones to chase,
+ *  so their dot is the strongest udhaar colour. */
+function DueBars({
+  ages,
+}: {
+  ages: { max_days: number | null; count: number; amount: number }[]
+}) {
+  const { t } = useI18n()
+  const { phone } = useLayout()
+  const most = Math.max(...ages.map((a) => a.amount), 1)
+  return (
+    <div
+      className={cn(
+        "flex min-h-[150px] flex-1 items-end",
+        phone ? "gap-2" : "gap-3 pr-[100px]"
+      )}
+    >
+      {ages.map((a, i) => (
+        <div
+          key={a.max_days ?? "old"}
+          className="flex h-full min-w-0 flex-1 flex-col justify-end gap-2.5"
+        >
+          <div
+            data-bar
+            className={cn(
+              "[container-type:inline-size] flex min-h-[72px] flex-col justify-between rounded-[22px] bg-raised",
+              phone ? "p-3" : "p-4",
+              !a.amount && "opacity-50"
+            )}
+            style={{ height: `${(a.amount / most) * 100}%` }}
+          >
+            <span
+              data-roll={`age-${a.max_days ?? "old"}`}
+              // Shrinks with its bar, so ₹1,00,000 still fits four across.
+              className={cn(
+                "truncate leading-none font-light",
+                phone ? "text-[min(26px,24cqi)]" : "text-[min(26px,21cqi)]"
+              )}
+            >
+              {inr(a.amount)}
+            </span>
+            {!phone && (
+              <span className="truncate text-xs text-muted-foreground">
+                {t("dash.agePeople", { count: a.count })}
+              </span>
+            )}
+          </div>
+          <p
+            className={cn(
+              "flex items-center gap-1.5 text-muted-foreground",
+              phone
+                ? "items-start text-xs leading-tight"
+                : "items-center text-[13px]"
+            )}
+          >
+            <Dot
+              color={`color-mix(in oklch, var(--chart-udhaar) ${40 + i * 20}%, var(--card))`}
+              size={8}
+            />
+            <span className={phone ? "" : "truncate"}>
+              {t(`dash.age.${a.max_days ?? "old"}`)}
+            </span>
+          </p>
+        </div>
+      ))}
     </div>
   )
 }
