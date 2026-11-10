@@ -435,7 +435,7 @@ export function BoloScreen() {
             )}
           </div>
         </div>
-        <div className="kf-ai-ring kf-ai-soft relative isolate w-full max-w-[560px] rounded-full p-[1.5px]">
+        <div className="kf-ai-ring kf-ai-soft relative isolate w-full max-w-[640px] rounded-full p-[1.5px]">
           <form
             onSubmit={(e) => {
               e.preventDefault()
