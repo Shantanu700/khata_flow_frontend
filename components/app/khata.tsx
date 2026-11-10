@@ -22,7 +22,7 @@ import {
   SearchIcon,
   TrashIcon,
 } from "@/components/app/icons"
-import { entryView, initial, lastLabel } from "@/components/app/khata-data"
+import { entryView, lastLabel } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
 import {
   AddButton,
@@ -50,6 +50,13 @@ import {
   Tip,
   toasted,
 } from "@/components/app/parts"
+import {
+  Face,
+  PhotoField,
+  photoSrc,
+  savePhoto,
+  type PhotoChange,
+} from "@/components/app/photo"
 import { useShell } from "@/components/app/shell"
 import { Notch, notchRadius } from "@/components/notch"
 import { Segmented } from "@/components/segmented"
@@ -191,8 +198,11 @@ export function KhataScreen() {
                     )}
                   >
                     <span className="flex items-center justify-between gap-2">
-                      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-card">
-                        {initial(c.name)}
+                      <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card">
+                        <Face
+                          name={c.name}
+                          src={photoSrc(`parties/${c.id}`, c.photo_key)}
+                        />
                       </span>
                       {(c.balance ?? 0) > 0 && (
                         <Dot color="var(--chart-udhaar)" size={8} />
@@ -236,8 +246,11 @@ export function KhataScreen() {
                         : "bg-transparent hover:bg-raised/50"
                     )}
                   >
-                    <span className="grid size-11 shrink-0 place-items-center rounded-full bg-background">
-                      {initial(c.name)}
+                    <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-background">
+                      <Face
+                        name={c.name}
+                        src={photoSrc(`parties/${c.id}`, c.photo_key)}
+                      />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-base">{c.name}</span>
@@ -852,6 +865,7 @@ function CustomerForm({
   const [error, setError] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [confirming, setConfirming] = React.useState(false)
+  const [photo, setPhoto] = React.useState<PhotoChange>()
   const owed = item?.balance ?? 0
   const clear = item ? owed <= 0 : false
 
@@ -914,6 +928,7 @@ function CustomerForm({
             },
             item.id
           )
+          .then(async (p) => (await savePhoto(`parties/${p.id}`, photo), p))
           .then(toasted(t("toast.updated", { name: item.name })))
           .then((p) => p.id)
       )
@@ -922,6 +937,7 @@ function CustomerForm({
     const opening = Number(f.get("opening"))
     save(async () => {
       const party = await write.saveParty({ name, aliases, kind: "CUSTOMER" })
+      await savePhoto(`parties/${party.id}`, photo)
       if (opening > 0)
         await write.addEntry({
           kind: "CREDIT_GIVEN",
@@ -947,6 +963,12 @@ function CustomerForm({
               : t("khata.editBodyOwing", { amount: inr(owed) })}
         </Dialog.Description>
       </div>
+      <PhotoField
+        name={item?.name ?? ""}
+        src={item ? photoSrc(`parties/${item.id}`, item.photo_key) : null}
+        change={photo}
+        onChange={setPhoto}
+      />
       {!item && (
         <label className="flex flex-col gap-2">
           <span className="text-[13px] text-muted-foreground">

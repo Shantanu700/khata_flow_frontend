@@ -17,7 +17,9 @@ import {
 import { useI18n } from "@/components/app/i18n"
 import type { Screen } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
+import { FormDialog } from "@/components/app/ledger"
 import { Tip, usePending } from "@/components/app/parts"
+import { Face, ShopPhotoForm, type PhotoChange } from "@/components/app/photo"
 import { reduceMotion } from "@/lib/motion"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
@@ -37,14 +39,17 @@ export function Rail({
   nav,
   go,
   logOut,
-  avatar,
+  shop,
+  saveShopPhoto,
 }: {
   nav: Screen
   go: (s: Screen) => void
   logOut: () => unknown
-  avatar: string
+  shop: { name: string; photo: string | null }
+  saveShopPhoto: (change: PhotoChange) => Promise<unknown>
 }) {
   const { t } = useI18n()
+  const [editing, setEditing] = React.useState(false)
   const [leaving, leave] = usePending()
   const { phone, w } = useLayout()
   const ref = React.useRef<HTMLElement>(null)
@@ -127,10 +132,25 @@ export function Rail({
         </Tip>
       </nav>
       {!phone && (
-        <span className="grid size-[60px] shrink-0 place-items-center rounded-full bg-paper text-xl font-medium text-black">
-          {avatar}
-        </span>
+        <Tip label={t("photo.shop")} side="right">
+          <button
+            type="button"
+            aria-label={t("photo.shop")}
+            onClick={() => setEditing(true)}
+            className="grid size-[60px] shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-paper text-xl font-medium text-black transition-transform duration-150 active:scale-[0.96]"
+          >
+            <Face name={shop.name} src={shop.photo} />
+          </button>
+        </Tip>
       )}
+      <FormDialog open={editing} onClose={() => setEditing(false)}>
+        <ShopPhotoForm
+          name={shop.name}
+          src={shop.photo}
+          onSave={saveShopPhoto}
+          onDone={() => setEditing(false)}
+        />
+      </FormDialog>
     </aside>
   )
 }

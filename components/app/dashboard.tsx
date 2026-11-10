@@ -4,12 +4,7 @@ import { ActivityChart } from "@/components/app/activity-chart"
 import { useCustomers, useSummary } from "@/components/app/data"
 import { qty, useI18n } from "@/components/app/i18n"
 import { ArrowIcon, MicIcon } from "@/components/app/icons"
-import {
-  entryView,
-  heat,
-  initial,
-  lastLabel,
-} from "@/components/app/khata-data"
+import { entryView, heat, lastLabel } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
 import { LoadError, Loading } from "@/components/app/ledger"
 import {
@@ -18,6 +13,7 @@ import {
   Dot,
   PanelTitle,
 } from "@/components/app/parts"
+import { Face, photoSrc } from "@/components/app/photo"
 import { useShell } from "@/components/app/shell"
 import { notchRadius } from "@/components/notch"
 import { inr } from "@/lib/api"
@@ -274,8 +270,11 @@ export function DashboardScreen() {
                 key={d.id}
                 className="relative flex min-h-[210px] flex-col justify-between gap-4 rounded-[32px] bg-card p-5"
               >
-                <span className="grid size-11 place-items-center rounded-full bg-raised text-base">
-                  {initial(d.name)}
+                <span className="grid size-11 place-items-center overflow-hidden rounded-full bg-raised text-base">
+                  <Face
+                    name={d.name}
+                    src={photoSrc(`parties/${d.id}`, d.photo_key)}
+                  />
                 </span>
                 <div className="pr-10">
                   <p className="truncate text-[22px]">{d.name}</p>

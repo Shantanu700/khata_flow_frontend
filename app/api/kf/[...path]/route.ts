@@ -38,6 +38,12 @@ async function forward(
     status: res.status,
     headers: {
       "content-type": res.headers.get("content-type") ?? "application/json",
+      ...Object.fromEntries(
+        ["cache-control", "x-content-type-options"].flatMap((h) => {
+          const v = res.headers.get(h)
+          return v ? [[h, v]] : []
+        })
+      ),
     },
   })
   if (res.status === 401) out.cookies.delete(TOKEN_COOKIE)

@@ -28,6 +28,7 @@ import {
 } from "@/components/app/icons"
 import { KhataScreen } from "@/components/app/khata"
 import { SCREEN_FLIP, type Screen } from "@/components/app/khata-data"
+import { photoSrc, savePhoto } from "@/components/app/photo"
 import { LanguagePicker } from "@/components/app/language-picker"
 import { LayoutContext, layoutFor } from "@/components/app/layout"
 import { LoginScreen } from "@/components/app/login"
@@ -265,7 +266,13 @@ function App({ me }: { me: Me }) {
             nav={nav}
             go={go}
             logOut={signOut}
-            avatar={shop.charAt(0).toUpperCase()}
+            shop={{ name: shop, photo: photoSrc("me", me.shop.photo_key) }}
+            saveShopPhoto={(change) =>
+              run(async () => {
+                const session = await savePhoto<Me>("me", change)
+                if (session) client.setQueryData(keys.me, session)
+              })
+            }
           />
 
           <main

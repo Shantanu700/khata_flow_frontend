@@ -17,7 +17,7 @@ import {
 } from "@/components/app/data"
 import { errorText, useI18n } from "@/components/app/i18n"
 import { ChevronIcon, PencilIcon } from "@/components/app/icons"
-import { entryView, initial } from "@/components/app/khata-data"
+import { entryView } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
 import {
   AddButton,
@@ -45,6 +45,13 @@ import {
   toasted,
   usePending,
 } from "@/components/app/parts"
+import {
+  Face,
+  PhotoField,
+  photoSrc,
+  savePhoto,
+  type PhotoChange,
+} from "@/components/app/photo"
 import { useShell } from "@/components/app/shell"
 import { Segmented } from "@/components/segmented"
 import { inr, isoDay, parseDay, type Party } from "@/lib/api"
@@ -202,8 +209,11 @@ export function StaffScreen() {
                 key={s.id}
                 className="relative flex items-center gap-3 rounded-[18px] bg-background py-3 pr-3 pl-3 transition-colors duration-150 hover:bg-raised"
               >
-                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-raised">
-                  {initial(s.name)}
+                <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-raised">
+                  <Face
+                    name={s.name}
+                    src={photoSrc(`parties/${s.id}`, s.photo_key)}
+                  />
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-px">
                   <button
@@ -258,8 +268,11 @@ export function StaffScreen() {
                 )}
               >
                 <span className="flex min-w-0 items-center gap-3">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-raised group-hover:bg-card">
-                    {initial(s.name)}
+                  <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-raised group-hover:bg-card">
+                    <Face
+                      name={s.name}
+                      src={photoSrc(`parties/${s.id}`, s.photo_key)}
+                    />
                   </span>
                   <span className="flex min-w-0 flex-col gap-px">
                     <button
@@ -451,8 +464,11 @@ function StaffLedger({ person }: { person: Party }) {
   return (
     <div ref={ref} className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex items-center gap-3.5 pr-12">
-        <span className="grid size-14 shrink-0 place-items-center rounded-full bg-raised text-xl">
-          {initial(person.name)}
+        <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-full bg-raised text-xl">
+          <Face
+            name={person.name}
+            src={photoSrc(`parties/${person.id}`, person.photo_key)}
+          />
         </span>
         <div className="min-w-0">
           <Dialog.Title className="truncate text-[28px] font-light">
@@ -667,8 +683,11 @@ function StaffCard({
     <div className="relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]">
       <div className="flex h-full flex-col justify-between gap-3 overflow-y-auto rounded-[32px] p-6 short:gap-2 short:p-5">
         <div className="flex items-center gap-3 pr-24">
-          <span className="grid size-12 shrink-0 place-items-center rounded-full bg-card text-lg short:size-10">
-            {initial(s.name)}
+          <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg short:size-10">
+            <Face
+              name={s.name}
+              src={photoSrc(`parties/${s.id}`, s.photo_key)}
+            />
           </span>
           <div className="min-w-0">
             <button
@@ -836,6 +855,7 @@ function StaffForm({
   const { run } = useShell()
   const [error, setError] = React.useState("")
   const [busy, setBusy] = React.useState(false)
+  const [photo, setPhoto] = React.useState<PhotoChange>()
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -847,8 +867,8 @@ function StaffForm({
     setBusy(true)
     setError("")
     try {
-      await run(() =>
-        write.saveParty(
+      await run(async () => {
+        const saved = await write.saveParty(
           {
             name,
             aliases: person?.aliases ?? [],
@@ -858,7 +878,8 @@ function StaffForm({
           },
           person?.id
         )
-      )
+        await savePhoto(`parties/${saved.id}`, photo)
+      })
       toast.success(t(person ? "toast.updated" : "toast.added", { name }))
       onDone()
     } catch (err) {
@@ -878,6 +899,12 @@ function StaffForm({
           {person ? t("staff.editBody") : t("staff.newBody")}
         </Dialog.Description>
       </div>
+      <PhotoField
+        name={person?.name ?? ""}
+        src={person ? photoSrc(`parties/${person.id}`, person.photo_key) : null}
+        change={photo}
+        onChange={setPhoto}
+      />
       {!person && (
         <label className="flex flex-col gap-2">
           <span className="text-[13px] text-muted-foreground">
