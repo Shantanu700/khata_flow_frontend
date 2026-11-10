@@ -459,7 +459,11 @@ export function BoloScreen() {
                     <Countdown until={clarification.expires_at} />
                     {clarification.kind !== "choose" && (
                       <span className="basis-full text-sm text-muted-foreground">
-                        {t("bolo.answerHint")}
+                        {t(
+                          clarification.kind === "confirm_create"
+                            ? "bolo.changeHint"
+                            : "bolo.answerHint"
+                        )}
                       </span>
                     )}
                   </div>
