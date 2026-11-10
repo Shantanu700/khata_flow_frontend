@@ -97,9 +97,19 @@ export function BoloScreen() {
   const player = React.useRef<HTMLAudioElement | null>(null)
   const job = React.useRef<Job | null>(null)
   const live = useLiveMic()
+  // A command asking for a missing detail: whatever is said or typed next answers it.
+  const asking = React.useRef<number | undefined>(undefined)
+  const replyTo = React.useCallback(() => {
+    const id = asking.current
+    asking.current = undefined
+    return id
+  }, [])
 
   // Show a finished command, then play its reply.
   const land = React.useCallback((c: VoiceCommand) => {
+    const kind = (c.clarification as { kind?: string } | null)?.kind
+    asking.current =
+      c.stage === "NEEDS_CLARIFICATION" && kind === "fill" ? c.id : undefined
     setCommand(c)
     setPhase("done")
     const url = audioUrl(c)
@@ -168,11 +178,11 @@ export function BoloScreen() {
       send(begin("text"), (progress) =>
         apiProgress<VoiceCommand>(
           "voice/text-commands",
-          { json: { text, language: code } },
+          { json: { text, language: code, reply_to: replyTo() } },
           progress
         )
       ),
-    [begin, send, code]
+    [begin, send, code, replyTo]
   )
 
   // Text typed in the header's box arrives here.
@@ -222,6 +232,8 @@ export function BoloScreen() {
         `command.${blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm"}`
       )
       form.append("language", code)
+      const reply = replyTo()
+      if (reply) form.append("reply_to", String(reply))
       send(mine, (progress) =>
         apiProgress<VoiceCommand>("voice/commands", { form }, progress)
       )
@@ -255,7 +267,11 @@ export function BoloScreen() {
   const stage = command?.stage ?? ""
   const timings = (command?.timings_ms ?? {}) as Record<string, number>
   const clarification = command?.clarification as
-    | { options: { id: string; label: string }[]; expires_at: string }
+    | {
+        kind: string
+        options: { id: string; label: string }[]
+        expires_at: string
+      }
     | null
     | undefined
 
@@ -434,6 +450,11 @@ export function BoloScreen() {
                       </button>
                     ))}
                     <Countdown until={clarification.expires_at} />
+                    {clarification.kind === "fill" && (
+                      <span className="basis-full text-sm text-muted-foreground">
+                        {t("bolo.answerHint")}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>

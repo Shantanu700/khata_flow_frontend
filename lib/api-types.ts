@@ -395,6 +395,8 @@ export interface components {
             /** Format: binary */
             audio: string;
             language?: components["schemas"]["LanguageEnum"];
+            /** @description The command asking for a missing detail (clarification kind "fill") that this answers. */
+            reply_to?: number;
         };
         ClarifyRequest: {
             option_id?: string;
@@ -803,6 +805,8 @@ export interface components {
         TextCommandRequest: {
             text: string;
             language?: components["schemas"]["LanguageEnum"];
+            /** @description The command asking for a missing detail (clarification kind "fill") that this answers. */
+            reply_to?: number;
         };
         /**
          * @description * `PACKET` - Packet
