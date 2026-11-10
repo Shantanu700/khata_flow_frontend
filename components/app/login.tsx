@@ -8,7 +8,9 @@ import { useI18n } from "@/components/app/i18n"
 import {
   EyeIcon,
   EyeOffIcon,
+  Branded,
   LogoMark,
+  Wordmark,
   MicIcon,
   MoonIcon,
   SunIcon,
@@ -267,8 +269,8 @@ export function LoginScreen({
             <div className="flex basis-full items-center justify-between gap-3">
               <span className="flex items-center gap-[10px]">
                 <LogoMark />
-                <span className="text-lg font-medium tracking-[-0.025em]">
-                  KhaataFlow
+                <span className="text-lg tracking-[-0.025em]">
+                  <Wordmark />
                 </span>
               </span>
               <span className="flex items-center gap-[10px] lg:hidden">
@@ -321,7 +323,7 @@ export function LoginScreen({
                 <>
                   {t(`auth.${m}Title`)}
                   <span className="block text-muted-foreground">
-                    {t(`auth.${m}Sub`)}
+                    <Branded text={t(`auth.${m}Sub`)} />
                   </span>
                 </>
               )}
@@ -405,7 +407,7 @@ export function LoginScreen({
               className="justify-items-center"
               render={(m) => (
                 <span className="flex flex-wrap justify-center gap-x-2.5 gap-y-1">
-                  {t(`auth.${m}SwitchPrompt`)}
+                  <Branded text={t(`auth.${m}SwitchPrompt`)} />
                   <button
                     type="button"
                     onClick={() =>
@@ -421,7 +423,7 @@ export function LoginScreen({
           </p>
         </section>
 
-        {/* Picture panel: the photo (when supplied) with KhaataFlow's own cards over it, and the theme toggle
+        {/* Picture panel: the photo (when supplied) with KhataFlow's own cards over it, and the theme toggle
             in the cut-out corner. */}
         <section className="relative hidden min-h-[640px] overflow-hidden rounded-[32px] bg-deep [--photo-edge:color-mix(in_oklch,var(--lime)_55%,var(--card))] lg:block">
           {PHOTO && (
@@ -456,7 +458,7 @@ export function LoginScreen({
   )
 }
 
-// Illustrative only: example figures showing what KhaataFlow looks like inside.
+// Illustrative only: example figures showing what KhataFlow looks like inside.
 const WEEK = [
   [40, 25],
   [10, 55],

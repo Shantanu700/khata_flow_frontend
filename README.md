@@ -1,6 +1,6 @@
-# KhaataFlow web app
+# KhataFlow web app
 
-The screens of KhaataFlow, a voice-first shop book for Indian kirana merchants: Dashboard, Ledger (customer
+The screens of KhataFlow, a voice-first shop book for Indian kirana merchants: Dashboard, Ledger (customer
 udhaar), Stock, Staff, Entries and Speak, in Hinglish and the 10 Indian languages Gnani supports.
 Next.js 16, React 19, Tailwind CSS 4, shadcn/ui and GSAP.
 
@@ -8,7 +8,7 @@ Next.js 16, React 19, Tailwind CSS 4, shadcn/ui and GSAP.
 [khata_flow_backend](https://github.com/Shantanu700/khata_flow_backend). Clone both side by side:
 
 ```bash
-mkdir KhaataFlow && cd KhaataFlow
+mkdir KhataFlow && cd KhataFlow
 git clone https://github.com/Shantanu700/khata_flow_backend.git backend
 git clone https://github.com/Shantanu700/khata_flow_frontend.git frontend
 ```

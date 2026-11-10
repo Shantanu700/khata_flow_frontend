@@ -1,6 +1,6 @@
 import "server-only"
 
-/** The KhaataFlow API, reached only from the server: the browser talks to /api/kf/* instead. */
+/** The KhataFlow API, reached only from the server: the browser talks to /api/kf/* instead. */
 export const API_URL = (process.env.KHATAFLOW_API_URL ?? "https://localhost:8000").replace(/\/$/, "")
 
 /** httpOnly, so page scripts never see the API token. */

@@ -29,6 +29,8 @@
   --red-ink: #ffb3b3;
   /* Lime as text; the fill itself is unreadable as text on light surfaces. */
   --lime-ink: var(--lime);
+  /* Behind the K mark: none on dark, a dark disc on light (see the light theme). */
+  --logo-disc: transparent;
   /* Soft red fills: delete buttons, error notes. */
   --danger-soft: #fe9695;
 
@@ -90,6 +92,7 @@
 
   --lime: #b5e778;
   --lime-ink: #467212;
+  --logo-disc: var(--ink);
   --cyan: #87ddd2;
   --red: #de3b3d;
   --red-ink: #a51e24;

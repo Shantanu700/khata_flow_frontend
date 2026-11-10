@@ -1,4 +1,9 @@
 // The KhataFlow app design's own line icons (24px grid, 1.8 stroke).
+import * as React from "react"
+import Image from "next/image"
+
+import mark from "@/public/images/logo/khataflow-mark.png"
+
 type IconProps = { size?: number; stroke?: number; className?: string }
 
 function Icon({
@@ -139,34 +144,40 @@ export const GridIcon = (p: IconProps) => (
   </Icon>
 )
 
-/** White disc with the book and a lime dot; `ring` is the colour behind it. */
-export function LogoMark({
-  size = 44,
-  ring = "var(--surface)",
-}: {
-  size?: number
-  ring?: string
-}) {
-  const dot = size >= 60 ? 16 : 14
+/** The K mark. In the light theme it sits on a dark disc (--logo-disc): its white half would vanish on light paper. */
+export function LogoMark({ size = 44 }: { size?: number }) {
+  const inner = Math.round(size * 0.72)
   return (
     <span
-      className="relative grid shrink-0 place-items-center rounded-full bg-white text-black"
+      className="grid shrink-0 place-items-center rounded-full bg-[var(--logo-disc)]"
       style={{ width: size, height: size }}
     >
-      <BookIcon size={size >= 60 ? 24 : 20} />
-      <span
-        className="absolute rounded-full border-[3px] bg-lime"
-        style={{
-          width: dot,
-          height: dot,
-          right: size >= 60 ? 0 : -2,
-          bottom: size >= 60 ? 0 : -2,
-          borderColor: ring,
-        }}
-      />
+      <Image src={mark} alt="" width={inner} height={inner} priority />
     </span>
   )
 }
+
+/** The name as the logo sets it: "Khata" in the surrounding ink, "Flow" in lime, a little bolder than the text
+ *  around it. `paper`: on the light paper cards, where bright lime would not show, Flow takes the deep green. */
+export const Wordmark = ({ paper }: { paper?: boolean }) => (
+  <span className="font-semibold">
+    Khata
+    <span className={paper ? "text-[#467212]" : "text-[var(--lime-ink)]"}>
+      Flow
+    </span>
+  </span>
+)
+
+/** `text` with each "KhataFlow" in it set as the wordmark. */
+export function Branded({ text, paper }: { text: string; paper?: boolean }) {
+  return text.split("KhataFlow").map((part, i) => (
+    <React.Fragment key={i}>
+      {i > 0 && <Wordmark paper={paper} />}
+      {part}
+    </React.Fragment>
+  ))
+}
+
 export const FilterIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 6h16M7 12h10M10 18h4" />
