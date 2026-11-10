@@ -29,9 +29,10 @@
   --red-ink: #ffb3b3;
   /* Lime as text; the fill itself is unreadable as text on light surfaces. */
   --lime-ink: var(--lime);
-  /* Behind the K mark: a light grey on dark, darker than the K's white half so the two don't merge; a dark
-     disc on light (see the light theme). */
-  --logo-disc: #c4c5c0;
+  /* Behind the K mark: near-black like the neon logo artwork, with a subtle lime edge so it parts from the dark
+     canvas; on light, a plain dark disc (see the light theme). */
+  --logo-disc: #0b0b0b;
+  --logo-edge: inset 0 0 0 1.5px rgb(185 255 102 / 45%);
   /* Soft red fills: delete buttons, error notes. */
   --danger-soft: #fe9695;
 
@@ -94,6 +95,7 @@
   --lime: #b5e778;
   --lime-ink: #467212;
   --logo-disc: var(--ink);
+  --logo-edge: none;
   --cyan: #87ddd2;
   --red: #de3b3d;
   --red-ink: #a51e24;
