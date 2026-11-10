@@ -203,8 +203,9 @@ function App({ me }: { me: Me }) {
 
   const signOut = async () => {
     await fetch("/api/session", { method: "DELETE" })
-    client.clear()
+    // clear() first would detach the screen from the session query, so it would never hear it end.
     client.setQueryData(keys.me, null)
+    client.removeQueries({ predicate: (q) => q.queryKey[0] !== keys.me[0] })
   }
 
   const setLanguage = async (next: string) => {
