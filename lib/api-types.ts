@@ -636,6 +636,8 @@ export interface components {
             readonly attendance_14d: string[] | null;
             /** Format: date */
             readonly last_entry_on: string | null;
+            /** Format: date */
+            readonly first_entry_on: string | null;
         };
         /**
          * @description * `CUSTOMER` - Customer

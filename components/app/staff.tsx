@@ -379,6 +379,7 @@ function StaffLedger({ person }: { person: Party }) {
   const data = useStaffMonth(person.id, month)
   const moves = useStaffMoves(person.id, first, last)
   const joined = person.created_at.slice(0, 10)
+  const since = [joined, person.first_entry_on ?? joined].sort()[0]
   const present = new Set(data.data?.present_days ?? [])
   const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7
   const days = Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => {
@@ -470,7 +471,7 @@ function StaffLedger({ person }: { person: Party }) {
       >
         <MonthButton
           label={t("range.prevMonth")}
-          disabled={first <= joined.slice(0, 8) + "01"}
+          disabled={month <= since.slice(0, 7)}
           onClick={() => step(-1)}
         >
           <ChevronIcon left size={16} />
@@ -519,14 +520,11 @@ function StaffLedger({ person }: { person: Party }) {
             })}
           </span>
         </div>
-        <div className="grid grid-cols-7 gap-y-1 text-center">
+        <div className="grid grid-cols-7 gap-y-3 text-center">
           {t("weekday.short")
             .split(",")
             .map((w) => (
-              <span
-                key={w}
-                className="pb-0.5 text-[11px] text-muted-foreground"
-              >
+              <span key={w} className="text-[11px] text-muted-foreground">
                 {w}
               </span>
             ))}
