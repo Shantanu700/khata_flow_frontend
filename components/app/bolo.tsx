@@ -186,11 +186,17 @@ export function BoloScreen() {
   // Text typed in the header's box arrives here.
   React.useEffect(() => {
     if (!said) return
-    // After the effect, not inside it: sending sets this screen's state.
+    // After the effect, not inside it: sending sets this screen's state. Only the effect still standing sends,
+    // or a remount (Strict Mode mounts twice) would send the command twice.
+    let current = true
     queueMicrotask(() => {
+      if (!current) return
       setSaid(null)
       sendText(said)
     })
+    return () => {
+      current = false
+    }
   }, [said, setSaid, sendText])
 
   React.useEffect(
