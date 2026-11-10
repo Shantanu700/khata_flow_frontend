@@ -97,7 +97,7 @@ export function BoloScreen() {
   const player = React.useRef<HTMLAudioElement | null>(null)
   const job = React.useRef<Job | null>(null)
   const live = useLiveMic()
-  // A command asking for a missing detail: whatever is said or typed next answers it.
+  // A command waiting on a question: what is said or typed next may answer it (the server decides).
   const asking = React.useRef<number | undefined>(undefined)
   const replyTo = React.useCallback(() => {
     const id = asking.current
@@ -107,9 +107,7 @@ export function BoloScreen() {
 
   // Show a finished command, then play its reply.
   const land = React.useCallback((c: VoiceCommand) => {
-    const kind = (c.clarification as { kind?: string } | null)?.kind
-    asking.current =
-      c.stage === "NEEDS_CLARIFICATION" && kind === "fill" ? c.id : undefined
+    asking.current = c.stage === "NEEDS_CLARIFICATION" ? c.id : undefined
     setCommand(c)
     setPhase("done")
     const url = audioUrl(c)
@@ -450,7 +448,7 @@ export function BoloScreen() {
                       </button>
                     ))}
                     <Countdown until={clarification.expires_at} />
-                    {clarification.kind === "fill" && (
+                    {clarification.kind !== "choose" && (
                       <span className="basis-full text-sm text-muted-foreground">
                         {t("bolo.answerHint")}
                       </span>
