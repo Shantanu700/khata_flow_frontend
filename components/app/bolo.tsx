@@ -66,9 +66,12 @@ const recordingType = () =>
     "audio/ogg;codecs=opus",
   ].find((t) => MediaRecorder.isTypeSupported(t)) ?? ""
 
-/** The reply's audio through the app's proxy (the API serves it only to the signed-in owner). */
+/** The reply's audio through the app's proxy (the API serves it only to the signed-in owner). The audio is cached,
+ *  and answering a question gives the same command a new reply, so the URL changes with it. */
 const audioUrl = (c: VoiceCommand) =>
-  c.response_audio_url ? `/api/kf/voice/commands/${c.id}/audio` : null
+  c.response_audio_url
+    ? `/api/kf/voice/commands/${c.id}/audio?v=${encodeURIComponent(c.updated_at)}`
+    : null
 
 const total = (c: VoiceCommand) =>
   Object.values((c.timings_ms ?? {}) as Record<string, number>).reduce(
