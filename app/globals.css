@@ -278,12 +278,12 @@
   animation-duration: 8s;
 }
 .kf-ai-ring.kf-ai-soft::before {
-  filter: blur(10px);
-  opacity: 0.2;
+  filter: blur(14px);
+  opacity: 0.5;
   transition: opacity 300ms;
 }
 .kf-ai-ring.kf-ai-soft:focus-within::before {
-  opacity: 0.4;
+  opacity: 0.75;
 }
 
 
