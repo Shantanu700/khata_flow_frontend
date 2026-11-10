@@ -16,7 +16,7 @@ import {
   write,
 } from "@/components/app/data"
 import { errorText, useI18n } from "@/components/app/i18n"
-import { ChevronIcon, PencilIcon } from "@/components/app/icons"
+import { ChevronIcon, PencilIcon, TrashIcon } from "@/components/app/icons"
 import { entryView } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
 import {
@@ -355,7 +355,10 @@ export function StaffScreen() {
           <StaffForm
             key={editing === "new" ? "" : editing.id}
             person={editing === "new" ? null : editing}
-            onDone={() => setEditing(null)}
+            onDone={(removed) => {
+              setEditing(null)
+              if (removed && ledgerOf?.id === removed) setLedgerOf(null)
+            }}
           />
         )}
       </FormDialog>
@@ -849,13 +852,51 @@ function StaffForm({
   onDone,
 }: {
   person: Party | null
-  onDone: () => void
+  /** `removed`: the id of the staff member just removed. */
+  onDone: (removed?: number) => void
 }) {
   const { t } = useI18n()
   const { run } = useShell()
   const [error, setError] = React.useState("")
   const [busy, setBusy] = React.useState(false)
   const [photo, setPhoto] = React.useState<PhotoChange>()
+  const [confirming, setConfirming] = React.useState(false)
+
+  if (person && confirming)
+    return (
+      <div className="flex flex-col gap-5">
+        <div>
+          <Dialog.Title className="text-2xl font-normal">
+            {t("stock.deleteTitle", { name: person.name })}
+          </Dialog.Title>
+          <Dialog.Description className="mt-1 text-sm text-muted-foreground">
+            {t("staff.deleteBody")}
+          </Dialog.Description>
+        </div>
+        <FormError error={error} />
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true)
+            setError("")
+            try {
+              await run(() => write.deleteParty(person.id))
+              toast.success(t("toast.removed", { name: person.name }))
+              onDone(person.id)
+            } catch (err) {
+              setError(errorText(err, t, { name: person.name }))
+            } finally {
+              setBusy(false)
+            }
+          }}
+          className="flex h-14 cursor-pointer items-center justify-center gap-2 rounded-full bg-danger-soft text-base font-medium text-black transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
+        >
+          {busy ? <Spinner className="size-[18px]" /> : <TrashIcon size={18} />}
+          {t("form.confirmDelete")}
+        </button>
+      </div>
+    )
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -942,6 +983,7 @@ function StaffForm({
       <FormActions
         busy={busy}
         submit={person ? t("form.save") : t("form.add")}
+        onDelete={person ? () => setConfirming(true) : undefined}
       />
     </form>
   )
