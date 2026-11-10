@@ -27,7 +27,12 @@ import {
   SunIcon,
 } from "@/components/app/icons"
 import { KhataScreen } from "@/components/app/khata"
-import { SCREEN_FLIP, type Screen } from "@/components/app/khata-data"
+import {
+  SCREEN_FLIP,
+  SCREEN_PATH,
+  screenAt,
+  type Screen,
+} from "@/components/app/khata-data"
 import { photoSrc, savePhoto } from "@/components/app/photo"
 import { LanguagePicker } from "@/components/app/language-picker"
 import { LayoutContext, layoutFor } from "@/components/app/layout"
@@ -148,8 +153,11 @@ function Splash() {
 function App({ me }: { me: Me }) {
   const client = useQueryClient()
   const { t, locale, code } = useI18n()
-  const [screen, setScreen] = React.useState<Screen>("dash")
-  const [nav, setNav] = React.useState<Screen>("dash")
+  // Gate shows the splash until the session loads, so this first runs in the browser.
+  const [screen, setScreen] = React.useState<Screen>(() =>
+    screenAt(window.location.pathname)
+  )
+  const [nav, setNav] = React.useState<Screen>(screen)
   const [size, setSize] = React.useState({ w: 1400, h: 900 })
   const [theme, toggleTheme] = useTheme()
   const [customerId, setCustomerId] = React.useState<number | null>(null)
@@ -166,6 +174,22 @@ function App({ me }: { me: Me }) {
     flipIds: SCREEN_FLIP,
     load: (s) => preload(client, s),
   })
+
+  React.useEffect(() => {
+    if (window.location.pathname !== SCREEN_PATH[nav])
+      window.history.pushState(null, "", SCREEN_PATH[nav])
+  }, [nav])
+
+  // Back and forward morph like a tab click.
+  const goRef = React.useRef(go)
+  React.useEffect(() => {
+    goRef.current = go
+  })
+  React.useEffect(() => {
+    const moved = () => goRef.current(screenAt(window.location.pathname))
+    window.addEventListener("popstate", moved)
+    return () => window.removeEventListener("popstate", moved)
+  }, [])
 
   // Writes in flight, for the top progress bar (reads it gets from React Query).
   const [saving, setSaving] = React.useState(0)
@@ -203,6 +227,7 @@ function App({ me }: { me: Me }) {
 
   const signOut = async () => {
     await fetch("/api/session", { method: "DELETE" })
+    window.history.replaceState(null, "", "/")
     // clear() first would detach the screen from the session query, so it would never hear it end.
     client.setQueryData(keys.me, null)
     client.removeQueries({ predicate: (q) => q.queryKey[0] !== keys.me[0] })

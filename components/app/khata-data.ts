@@ -23,6 +23,26 @@ export const SCREEN_FLIP: Record<Screen, string[]> = {
   bolo: ["main-card", "main-br", "side-card"],
 }
 
+/** Each tab's URL, so a refresh stays on it. One catch-all route serves them all, keeping the shell mounted
+ *  for the morph between tabs. */
+export const SCREEN_PATH: Record<Screen, string> = {
+  dash: "/",
+  khata: "/khata",
+  stock: "/stock",
+  staff: "/staff",
+  entries: "/entries",
+  bolo: "/bolo",
+}
+
+export const screenAt = (pathname: string): Screen => {
+  const path = pathname.replace(/\/+$/, "") || "/"
+  return (
+    (Object.keys(SCREEN_PATH) as Screen[]).find(
+      (s) => SCREEN_PATH[s] === path
+    ) ?? "dash"
+  )
+}
+
 export type Unit = Product["unit"]
 export const UNITS: Unit[] = ["PACKET", "KG", "LITRE", "PIECE"]
 
@@ -47,7 +67,13 @@ export const STAGE_DOT: Record<string, string> = {
 }
 
 /** The five money-heat dots on a debtor card: more filled the more they owe against the biggest debtor. */
-const HEAT = ["var(--heat-5)", "var(--heat-4)", "var(--heat-3)", "var(--heat-2)", "var(--heat-1)"]
+const HEAT = [
+  "var(--heat-5)",
+  "var(--heat-4)",
+  "var(--heat-3)",
+  "var(--heat-2)",
+  "var(--heat-1)",
+]
 export const heat = (balance: number, max: number) => {
   const level =
     balance <= 0 ? 0 : Math.max(1, Math.round((balance / Math.max(max, 1)) * 5))
