@@ -1,4 +1,4 @@
-# KhaataFlow design system
+# KhataFlow design system
 
 Visual reference: the HubSpot CRM SaaS redesign case study in `../Design/` (Behance). We borrow its palette, type and component shapes, never its logo or name. Motion follows the owner's Lead Flow frontend (`github.com/Shantanu700/lead_flow_frontend`, its `DESIGN.md` § Motion).
 

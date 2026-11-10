@@ -14,7 +14,7 @@ const urbanist = Urbanist({
 const fontMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" })
 
 export const metadata: Metadata = {
-  title: "KhaataFlow",
+  title: "KhataFlow",
   description: "Voice-first shop book for kirana merchants",
 }
 

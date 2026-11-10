@@ -80,7 +80,7 @@ export function Rail({
         phone && "flex-none"
       )}
     >
-      {!phone && <LogoMark size={60} ring="var(--canvas)" />}
+      {!phone && <LogoMark size={60} />}
       <nav
         ref={ref}
         aria-label="Main"

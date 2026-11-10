@@ -43,7 +43,7 @@ export function Logo() {
         <BookOpen className="size-5 text-black" />
         <span className="absolute -right-0.5 -bottom-0.5 size-3.5 rounded-full border-[3px] border-canvas bg-lime" />
       </span>
-      <span className="text-lg font-medium tracking-tight max-sm:sr-only">KhaataFlow</span>
+      <span className="text-lg font-medium tracking-tight max-sm:sr-only">KhataFlow</span>
     </span>
   )
 }

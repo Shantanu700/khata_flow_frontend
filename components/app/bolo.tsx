@@ -13,7 +13,7 @@ import {
 
 import { SIZE, useVoiceHistory } from "@/components/app/data"
 import { useI18n } from "@/components/app/i18n"
-import { ArrowIcon, MicIcon, PlayIcon } from "@/components/app/icons"
+import { ArrowIcon, Branded, MicIcon, PlayIcon } from "@/components/app/icons"
 import { STAGE_DOT } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
 import {
@@ -438,7 +438,7 @@ export function BoloScreen() {
               <div className="mx-auto flex w-full max-w-[640px] flex-col gap-4 self-stretch rounded-[28px] bg-paper p-6 text-black">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs text-[#434343]">
-                    {t("bolo.replied")}
+                    <Branded text={t("bolo.replied")} paper />
                   </span>
                   <span className="flex items-center gap-1.5 rounded-full bg-black px-2.5 py-[5px] text-[11px] text-white">
                     <Dot

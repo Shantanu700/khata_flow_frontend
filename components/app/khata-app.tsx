@@ -144,7 +144,7 @@ function Splash() {
       className="kf-app grid h-dvh place-items-center bg-background"
     >
       <span className="animate-pulse motion-reduce:animate-none">
-        <LogoMark size={60} ring="var(--canvas)" />
+        <LogoMark size={60} />
       </span>
     </div>
   )
