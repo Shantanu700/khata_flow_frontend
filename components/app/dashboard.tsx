@@ -11,7 +11,7 @@ import {
   lastLabel,
 } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
-import { LoadError } from "@/components/app/ledger"
+import { LoadError, Loading } from "@/components/app/ledger"
 import {
   AliasChip,
   CornerButton,
@@ -41,6 +41,7 @@ export function DashboardScreen() {
   const most = Math.max(...top.map((d) => d.balance ?? 0), 1)
 
   if (summary.isError) return <LoadError onRetry={() => summary.refetch()} />
+  if (summary.isPending) return <Loading />
 
   return (
     <div className="flex flex-col gap-[10px]">

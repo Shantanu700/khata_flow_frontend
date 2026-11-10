@@ -45,12 +45,14 @@ import {
   ViewToggle,
   pagesOf,
   type View,
+  Loading,
 } from "@/components/app/ledger"
 import { useListMotion } from "@/components/app/list-motion"
 import { CornerButton, Dot, Tip, toasted } from "@/components/app/parts"
 import { useShell } from "@/components/app/shell"
 import { Segmented } from "@/components/segmented"
 import type { Product } from "@/lib/api"
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
 const COLS =
@@ -345,6 +347,7 @@ export function StockScreen() {
             ))}
           </div>
         )}
+        {list.isPending && <Loading />}
         {list.isError && <LoadError onRetry={() => list.refetch()} />}
         {list.data && count === 0 && (
           <p className="px-1 py-7 text-sm text-muted-foreground">
@@ -749,6 +752,7 @@ function StockLedger() {
               </div>
             )
           )}
+          {list.isPending && <Loading />}
           {list.isError && <LoadError onRetry={() => list.refetch()} />}
           {list.data && count === 0 && (
             <p className="px-4 py-7 text-sm text-muted-foreground">
@@ -865,7 +869,7 @@ function ProductForm({
           }
           className="flex h-14 cursor-pointer items-center justify-center gap-2 rounded-full bg-danger-soft text-base font-medium text-black transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
         >
-          <TrashIcon size={18} />
+          {busy ? <Spinner className="size-[18px]" /> : <TrashIcon size={18} />}
           {t("form.confirmDelete")}
         </button>
       </div>

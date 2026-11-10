@@ -39,6 +39,7 @@ import {
   pagesOf,
   useNotchBox,
   type View,
+  Loading,
 } from "@/components/app/ledger"
 import { useListMotion } from "@/components/app/list-motion"
 import {
@@ -53,6 +54,7 @@ import { useShell } from "@/components/app/shell"
 import { Notch, notchRadius } from "@/components/notch"
 import { Segmented } from "@/components/segmented"
 import { inr, type Party } from "@/lib/api"
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
 type Money = "CREDIT_GIVEN" | "PAYMENT_RECEIVED"
@@ -105,8 +107,10 @@ export function KhataScreen() {
       className={cn(
         "grid gap-[10px]",
         narrow
-          ? "grid-cols-1"
-          : "min-h-full grid-cols-[minmax(300px,420px)_minmax(0,1fr)]"
+          ? single
+            ? "h-full grid-cols-1 grid-rows-[minmax(0,1fr)]"
+            : "grid-cols-1"
+          : "h-full grid-cols-[minmax(300px,420px)_minmax(0,1fr)] grid-rows-[minmax(0,1fr)]"
       )}
     >
       {!single && (
@@ -115,7 +119,7 @@ export function KhataScreen() {
           data-panel
           data-flip-id="side-card"
           data-shape=""
-          className="relative flex flex-col gap-1.5 rounded-[32px] bg-card p-4"
+          className="relative flex min-h-0 flex-col gap-1.5 rounded-[32px] bg-card p-4"
         >
           <div
             className="min-h-[52px] px-2 pt-1"
@@ -170,92 +174,97 @@ export function KhataScreen() {
               className="h-12 shrink-0 bg-raised"
             />
           </div>
-          {view === "cards" ? (
-            <div className="grid grid-cols-2 gap-[10px]">
-              {shown.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => pick(c.id)}
-                  aria-pressed={!narrow && c.id === selectedId}
-                  className={cn(
-                    "flex min-w-0 cursor-pointer flex-col gap-4 rounded-[24px] p-4 text-left transition-colors duration-150",
-                    !narrow && c.id === selectedId
-                      ? "bg-raised ring-2 ring-lime ring-inset"
-                      : "bg-background/60 hover:bg-raised"
-                  )}
-                >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-card">
+          <div className="-mx-1 flex min-h-0 flex-1 flex-col overflow-y-auto px-1">
+            {view === "cards" ? (
+              <div className="grid grid-cols-2 gap-[10px]">
+                {shown.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => pick(c.id)}
+                    aria-pressed={!narrow && c.id === selectedId}
+                    className={cn(
+                      "flex min-w-0 cursor-pointer flex-col gap-4 rounded-[24px] p-4 text-left transition-colors duration-150",
+                      !narrow && c.id === selectedId
+                        ? "bg-raised ring-2 ring-lime ring-inset"
+                        : "bg-background/60 hover:bg-raised"
+                    )}
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-card">
+                        {initial(c.name)}
+                      </span>
+                      {(c.balance ?? 0) > 0 && (
+                        <Dot color="var(--chart-udhaar)" size={8} />
+                      )}
+                    </span>
+                    <span
+                      className={cn(
+                        "truncate leading-none font-light tracking-[-0.02em]",
+                        phone ? "text-2xl" : "text-[28px]"
+                      )}
+                    >
+                      <span data-roll={`bal-${c.id}`} className="block">
+                        {balanceText(c, t)}
+                      </span>
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm">{c.name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {lastLabel(c.last_entry_on, t)}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between px-3 text-xs text-muted-foreground">
+                  <span>{t("khata.listTitle")}</span>
+                  <span>{t("col.balance")}</span>
+                </div>
+                {shown.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => pick(c.id)}
+                    aria-pressed={!narrow && c.id === selectedId}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-3 rounded-3xl p-3 text-left transition-colors duration-150",
+                      !narrow && c.id === selectedId
+                        ? "bg-raised"
+                        : "bg-transparent hover:bg-raised/50"
+                    )}
+                  >
+                    <span className="grid size-11 shrink-0 place-items-center rounded-full bg-background">
                       {initial(c.name)}
                     </span>
-                    {(c.balance ?? 0) > 0 && (
-                      <Dot color="var(--chart-udhaar)" size={8} />
-                    )}
-                  </span>
-                  <span
-                    className={cn(
-                      "truncate leading-none font-light tracking-[-0.02em]",
-                      phone ? "text-2xl" : "text-[28px]"
-                    )}
-                  >
-                    <span data-roll={`bal-${c.id}`} className="block">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-base">{c.name}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {lastLabel(c.last_entry_on, t)}
+                      </span>
+                    </span>
+                    <span
+                      data-roll={`bal-${c.id}`}
+                      className="text-lg font-light"
+                    >
                       {balanceText(c, t)}
                     </span>
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm">{c.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {lastLabel(c.last_entry_on, t)}
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <>
-              <div className="flex justify-between px-3 text-xs text-muted-foreground">
-                <span>{t("khata.listTitle")}</span>
-                <span>{t("col.balance")}</span>
-              </div>
-              {shown.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => pick(c.id)}
-                  aria-pressed={!narrow && c.id === selectedId}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-3 rounded-3xl p-3 text-left transition-colors duration-150",
-                    !narrow && c.id === selectedId
-                      ? "bg-raised"
-                      : "bg-transparent hover:bg-raised/50"
-                  )}
-                >
-                  <span className="grid size-11 shrink-0 place-items-center rounded-full bg-background">
-                    {initial(c.name)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-base">{c.name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {lastLabel(c.last_entry_on, t)}
-                    </span>
-                  </span>
-                  <span
-                    data-roll={`bal-${c.id}`}
-                    className="text-lg font-light"
-                  >
-                    {balanceText(c, t)}
-                  </span>
-                </button>
-              ))}
-            </>
-          )}
-          {list.isError && <LoadError onRetry={() => list.refetch()} />}
-          {list.data && shown.length === 0 && (
-            <p className="px-3 py-6 text-sm text-muted-foreground">
-              {q || show !== "sab" ? t("khata.noneFound") : t("khata.noneYet")}
-            </p>
-          )}
+                  </button>
+                ))}
+              </>
+            )}
+            {list.isPending && <Loading />}
+            {list.isError && <LoadError onRetry={() => list.refetch()} />}
+            {list.data && shown.length === 0 && (
+              <p className="px-3 py-6 text-sm text-muted-foreground">
+                {q || show !== "sab"
+                  ? t("khata.noneFound")
+                  : t("khata.noneYet")}
+              </p>
+            )}
+          </div>
           <div className="mt-auto flex justify-between border-t border-line px-3 pt-3.5 pb-1 text-sm text-muted-foreground">
             <span>{t("khata.total")}</span>
             <span data-roll="khata-total" className="text-foreground">
@@ -398,7 +407,7 @@ function CustomerLedger({
       data-flip-id="main-card"
       data-shape=""
       className={cn(
-        "relative flex flex-col gap-6 rounded-[32px] bg-card",
+        "relative flex min-h-0 flex-col gap-6 rounded-[32px] bg-card",
         phone ? "p-5" : "p-7"
       )}
     >
@@ -536,7 +545,7 @@ function CustomerLedger({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-h-[240px] flex-1 flex-col gap-1.5">
         {!stacked && (
           <div
             className={cn(
@@ -552,111 +561,116 @@ function CustomerLedger({
             <span />
           </div>
         )}
-        {rows.map((e) =>
-          stacked ? (
-            <div
-              key={e.id}
-              data-flip-id={`row-${e.id}`}
-              className={cn(
-                "flex items-center gap-3 rounded-[18px] bg-background py-3 pr-2.5 pl-4",
-                e.faded && "opacity-50"
-              )}
-            >
-              <span className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-raised px-2.5 py-[3px] text-xs font-medium">
+        <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overscroll-contain px-1">
+          {rows.map((e) =>
+            stacked ? (
+              <div
+                key={e.id}
+                data-flip-id={`row-${e.id}`}
+                className={cn(
+                  "flex items-center gap-3 rounded-[18px] bg-background py-3 pr-2.5 pl-4",
+                  e.faded && "opacity-50"
+                )}
+              >
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-raised px-2.5 py-[3px] text-xs font-medium">
+                      <Dot color={e.dot} size={7} />
+                      {e.kindLabel}
+                    </span>
+                    <span className="truncate text-sm">{e.date}</span>
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {e.idLabel} · {e.src}
+                    {e.tag && ` · ${e.tag}`}
+                  </span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span
+                    className={cn(
+                      "block text-[15px] font-light tabular-nums",
+                      e.struck && "line-through"
+                    )}
+                  >
+                    {e.amt}
+                  </span>
+                  {e.running && (
+                    <span className="block text-xs text-muted-foreground tabular-nums">
+                      {t("khata.runningShort", { amount: e.running })}
+                    </span>
+                  )}
+                </span>
+                {e.canUndo ? (
+                  <UndoButton
+                    onClick={() => undo(e.id)}
+                    className="size-11 shrink-0"
+                  />
+                ) : (
+                  <span className="w-11 shrink-0" />
+                )}
+              </div>
+            ) : (
+              <div
+                key={e.id}
+                data-flip-id={`row-${e.id}`}
+                className={cn(
+                  COLUMNS,
+                  "group items-center rounded-[18px] bg-background py-3 pr-2.5 pl-4 transition-colors duration-150 hover:bg-raised",
+                  e.faded && "opacity-50"
+                )}
+              >
+                <span className="flex min-w-0 flex-col gap-px">
+                  <span className="truncate text-sm font-medium">{e.date}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {e.idLabel}
+                  </span>
+                </span>
+                <span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-raised px-2.5 py-[3px] text-xs font-medium group-hover:bg-card">
                     <Dot color={e.dot} size={7} />
                     {e.kindLabel}
                   </span>
-                  <span className="truncate text-sm">{e.date}</span>
                 </span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {e.idLabel} · {e.src}
-                  {e.tag && ` · ${e.tag}`}
+                <span className="flex min-w-0 flex-col gap-px">
+                  <span className="truncate text-[13px]">{e.src}</span>
+                  {e.tag && (
+                    <span className="text-xs text-muted-foreground">
+                      {e.tag}
+                    </span>
+                  )}
                 </span>
-              </span>
-              <span className="shrink-0 text-right">
                 <span
                   className={cn(
-                    "block text-[15px] font-light tabular-nums",
+                    "text-right text-[15px] font-light tabular-nums",
                     e.struck && "line-through"
                   )}
                 >
                   {e.amt}
                 </span>
-                {e.running && (
-                  <span className="block text-xs text-muted-foreground tabular-nums">
-                    {t("khata.runningShort", { amount: e.running })}
-                  </span>
-                )}
-              </span>
-              {e.canUndo ? (
-                <UndoButton
-                  onClick={() => undo(e.id)}
-                  className="size-11 shrink-0"
-                />
-              ) : (
-                <span className="w-11 shrink-0" />
-              )}
-            </div>
-          ) : (
-            <div
-              key={e.id}
-              data-flip-id={`row-${e.id}`}
-              className={cn(
-                COLUMNS,
-                "group items-center rounded-[18px] bg-background py-3 pr-2.5 pl-4 transition-colors duration-150 hover:bg-raised",
-                e.faded && "opacity-50"
-              )}
-            >
-              <span className="flex min-w-0 flex-col gap-px">
-                <span className="truncate text-sm font-medium">{e.date}</span>
-                <span className="text-xs text-muted-foreground">
-                  {e.idLabel}
+                <span className="text-right text-sm text-muted-foreground tabular-nums">
+                  {e.running}
                 </span>
-              </span>
-              <span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-raised px-2.5 py-[3px] text-xs font-medium group-hover:bg-card">
-                  <Dot color={e.dot} size={7} />
-                  {e.kindLabel}
-                </span>
-              </span>
-              <span className="flex min-w-0 flex-col gap-px">
-                <span className="truncate text-[13px]">{e.src}</span>
-                {e.tag && (
-                  <span className="text-xs text-muted-foreground">{e.tag}</span>
+                {e.canUndo ? (
+                  <UndoButton
+                    onClick={() => undo(e.id)}
+                    className="group-hover:bg-card coarse:size-11"
+                  />
+                ) : (
+                  <span />
                 )}
-              </span>
-              <span
-                className={cn(
-                  "text-right text-[15px] font-light tabular-nums",
-                  e.struck && "line-through"
-                )}
-              >
-                {e.amt}
-              </span>
-              <span className="text-right text-sm text-muted-foreground tabular-nums">
-                {e.running}
-              </span>
-              {e.canUndo ? (
-                <UndoButton
-                  onClick={() => undo(e.id)}
-                  className="group-hover:bg-card coarse:size-11"
-                />
-              ) : (
-                <span />
-              )}
-            </div>
-          )
-        )}
-        {ledger.isError && <LoadError onRetry={() => ledger.refetch()} />}
-        {ledger.data && rows.length === 0 && (
-          <p className="px-4 py-7 text-sm text-muted-foreground">
-            {kind !== "sab" || range
-              ? t("khata.noneInFilter")
-              : t("khata.noEntriesYet")}
-          </p>
-        )}
+              </div>
+            )
+          )}
+          {ledger.isPending && <Loading />}
+          {ledger.isError && <LoadError onRetry={() => ledger.refetch()} />}
+          {ledger.data && rows.length === 0 && (
+            <p className="px-4 py-7 text-sm text-muted-foreground">
+              {kind !== "sab" || range
+                ? t("khata.noneInFilter")
+                : t("khata.noEntriesYet")}
+            </p>
+          )}
+        </div>
       </div>
     </section>
   )
@@ -878,7 +892,7 @@ function CustomerForm({
           }
           className="flex h-14 cursor-pointer items-center justify-center gap-2 rounded-full bg-danger-soft text-base font-medium text-black transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
         >
-          <TrashIcon size={18} />
+          {busy ? <Spinner className="size-[18px]" /> : <TrashIcon size={18} />}
           {t("form.confirmDelete")}
         </button>
       </div>

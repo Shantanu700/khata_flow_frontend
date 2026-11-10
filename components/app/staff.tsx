@@ -35,12 +35,21 @@ import {
   ViewToggle,
   pagesOf,
   type View,
+  Loading,
 } from "@/components/app/ledger"
-import { CornerButton, Dot, Swap, Tip, toasted } from "@/components/app/parts"
+import {
+  CornerButton,
+  Dot,
+  Swap,
+  Tip,
+  toasted,
+  usePending,
+} from "@/components/app/parts"
 import { useShell } from "@/components/app/shell"
 import { Segmented } from "@/components/segmented"
 import { inr, isoDay, parseDay, type Party } from "@/lib/api"
 import { reduceMotion } from "@/lib/motion"
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
 type Show = "sab" | "yes" | "no"
@@ -312,6 +321,7 @@ export function StaffScreen() {
             ))}
           </div>
         )}
+        {list.isPending && <Loading />}
         {list.isError && <LoadError onRetry={() => list.refetch()} />}
         {list.data && count === 0 && (
           <p className="px-1 py-7 text-sm text-muted-foreground">
@@ -647,10 +657,11 @@ function StaffCard({
   s: Party
   onEdit: () => void
   onLedger: () => void
-  onPresent: () => void
+  onPresent: () => unknown
   onPay: (kind: Money) => void
 }) {
   const { t, locale } = useI18n()
+  const [marking, mark] = usePending()
   const here = s.present_today !== null
   const present = new Set(s.attendance_14d ?? [])
   const left = salaryLeft(s)
@@ -721,16 +732,21 @@ function StaffCard({
           <Tip label={here ? t("staff.unmarkTitle") : t("staff.markTitle")}>
             <button
               type="button"
-              onClick={onPresent}
+              onClick={() => mark(onPresent)}
               aria-pressed={here}
+              aria-busy={marking}
+              disabled={marking}
               className={cn(
                 "h-10 cursor-pointer rounded-full px-4 text-sm transition-colors duration-150 short:h-9",
                 here ? "bg-lime text-black" : "bg-card"
               )}
             >
-              <Swap on={here} off={t("staff.mark")}>
-                {t("staff.marked")}
-              </Swap>
+              <span className="inline-flex items-center gap-2">
+                {marking && <Spinner className="size-3.5" />}
+                <Swap on={here} off={t("staff.mark")}>
+                  {t("staff.marked")}
+                </Swap>
+              </span>
             </button>
           </Tip>
           <Tip label={left <= 0 ? t("staff.salaryGone") : undefined}>

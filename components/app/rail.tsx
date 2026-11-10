@@ -17,8 +17,9 @@ import {
 import { useI18n } from "@/components/app/i18n"
 import type { Screen } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
-import { Tip } from "@/components/app/parts"
+import { Tip, usePending } from "@/components/app/parts"
 import { reduceMotion } from "@/lib/motion"
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
 const NAV: { screen: Screen; icon: typeof HomeIcon }[] = [
@@ -40,10 +41,11 @@ export function Rail({
 }: {
   nav: Screen
   go: (s: Screen) => void
-  logOut: () => void
+  logOut: () => unknown
   avatar: string
 }) {
   const { t } = useI18n()
+  const [leaving, leave] = usePending()
   const { phone, w } = useLayout()
   const ref = React.useRef<HTMLElement>(null)
   const pill = React.useRef<HTMLSpanElement>(null)
@@ -112,13 +114,15 @@ export function Rail({
           <button
             type="button"
             aria-label={t("nav.signOut")}
-            onClick={logOut}
+            aria-busy={leaving}
+            disabled={leaving}
+            onClick={() => leave(logOut)}
             className={cn(
               "relative grid h-11 cursor-pointer place-items-center rounded-full bg-raised text-muted-foreground",
               phone ? "min-w-0 flex-1" : "w-11"
             )}
           >
-            <LogoutIcon />
+            {leaving ? <Spinner /> : <LogoutIcon />}
           </button>
         </Tip>
       </nav>

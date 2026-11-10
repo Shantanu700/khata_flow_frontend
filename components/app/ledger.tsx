@@ -16,6 +16,7 @@ import { useLayout } from "@/components/app/layout"
 import { CornerButton, Tip } from "@/components/app/parts"
 import { Notch, notchRadius } from "@/components/notch"
 import { Segmented } from "@/components/segmented"
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
 export const PAGE = 11
@@ -610,9 +611,33 @@ export function FormActions({
         disabled={busy}
         className="h-14 flex-1 cursor-pointer rounded-full bg-lime text-base font-medium text-black transition-[background-color,transform] duration-150 hover:bg-lime/85 active:scale-[0.98] disabled:cursor-default disabled:opacity-60"
       >
-        {busy ? t("form.saving") : submit}
+        {busy ? (
+          <span className="inline-flex items-center gap-2">
+            <Spinner />
+            {t("form.saving")}
+          </span>
+        ) : (
+          submit
+        )}
       </button>
     </div>
+  )
+}
+
+/** A list's first load, before it has anything to show. */
+export function Loading({ className }: { className?: string }) {
+  const { t } = useI18n()
+  return (
+    <p
+      role="status"
+      className={cn(
+        "flex items-center gap-2.5 px-1 py-7 text-sm text-muted-foreground",
+        className
+      )}
+    >
+      <Spinner />
+      {t("loading")}
+    </p>
   )
 }
 

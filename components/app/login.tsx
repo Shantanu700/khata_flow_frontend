@@ -17,6 +17,7 @@ import { Dot, Tip } from "@/components/app/parts"
 import { useTheme } from "@/components/app/theme"
 import { Notch, notchRadius } from "@/components/notch"
 import type { Me } from "@/lib/api"
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 import shopkeeper from "@/public/images/auth-shopkeeper.jpg"
 
@@ -381,7 +382,10 @@ export function LoginScreen({
               className="mt-2 h-14 w-full cursor-pointer rounded-full bg-lime text-base font-medium text-black transition-[background-color,transform] duration-150 hover:bg-lime/85 active:scale-[0.98] disabled:cursor-default disabled:opacity-60"
             >
               {busy ? (
-                t(register ? "auth.registerBusy" : "login.busy")
+                <span className="inline-flex items-center gap-2">
+                  <Spinner />
+                  {t(register ? "auth.registerBusy" : "login.busy")}
+                </span>
               ) : (
                 <Crossfade mode={mode} render={(m) => t(`auth.${m}Submit`)} />
               )}

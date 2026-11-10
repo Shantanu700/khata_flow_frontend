@@ -10,6 +10,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
 /** The design's corner control: a 52px round button sitting in a notch cut into the card. */
@@ -98,6 +99,18 @@ export function Tip({
   )
 }
 
+/** One async action's progress, so its control can show a spinner while it runs. */
+export function usePending() {
+  const [pending, setPending] = React.useState(false)
+  const track = React.useCallback(<R,>(work: () => R | Promise<R>) => {
+    setPending(true)
+    return Promise.resolve()
+      .then(work)
+      .finally(() => setPending(false))
+  }, [])
+  return [pending, track] as const
+}
+
 /** Confirms a finished write with a toast and passes its result on. */
 export const toasted =
   (message: string) =>
@@ -118,22 +131,25 @@ export function UndoButton({
   onClick,
   className,
 }: {
-  onClick: () => void
+  onClick: () => unknown
   className?: string
 }) {
   const { t } = useI18n()
+  const [pending, track] = usePending()
   return (
     <Tip label={t("entry.undo")}>
       <button
         type="button"
         aria-label={t("entry.undo")}
-        onClick={onClick}
+        aria-busy={pending}
+        disabled={pending}
+        onClick={() => track(onClick)}
         className={cn(
           "grid size-9 cursor-pointer place-items-center rounded-full bg-raised",
           className
         )}
       >
-        <UndoIcon size={14} />
+        {pending ? <Spinner className="size-3.5" /> : <UndoIcon size={14} />}
       </button>
     </Tip>
   )

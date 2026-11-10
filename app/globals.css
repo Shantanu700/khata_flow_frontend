@@ -288,6 +288,19 @@
 }
 
 
+/* The top progress bar's slide, indeterminate. */
+.kf-progress {
+  animation: kf-progress 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes kf-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
 @keyframes kf-turn {
   to {
     --kf-turn: 360deg;
@@ -303,6 +316,9 @@
   .animate-grow,
   .kf-ai-ring {
     animation: none;
+  }
+  .kf-progress {
+    animation-duration: 3s;
   }
 }
 

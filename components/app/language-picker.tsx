@@ -6,7 +6,8 @@ import { Popover } from "radix-ui"
 import { useLanguages } from "@/components/app/data"
 import { useI18n } from "@/components/app/i18n"
 import { GlobeIcon } from "@/components/app/icons"
-import { Tip } from "@/components/app/parts"
+import { Tip, usePending } from "@/components/app/parts"
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
 /** The globe button and its list of languages, each in its own script. */
@@ -17,18 +18,21 @@ export function LanguagePicker({
   className,
 }: {
   value: string
-  onChange: (code: string) => void
+  onChange: (code: string) => unknown
   compact: boolean
   className?: string
 }) {
   const { t } = useI18n()
   const languages = useLanguages()
   const [open, setOpen] = React.useState(false)
+  const [switching, track] = usePending()
   const current = languages.data?.find((l) => l.code === value)
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Tip label={compact ? t("header.language") : undefined}>
         <Popover.Trigger
+          aria-busy={switching}
+          disabled={switching}
           aria-label={`${t("header.language")}: ${current?.native_name ?? value}`}
           className={cn(
             "flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-full bg-card text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -36,7 +40,7 @@ export function LanguagePicker({
             className
           )}
         >
-          <GlobeIcon />
+          {switching ? <Spinner className="size-[18px]" /> : <GlobeIcon />}
           {!compact && (current?.native_name ?? value)}
         </Popover.Trigger>
       </Tip>
@@ -53,7 +57,7 @@ export function LanguagePicker({
               type="button"
               lang={l.code === "hi-Latn" ? "en-IN" : l.code}
               aria-pressed={l.code === value}
-              onClick={() => (setOpen(false), onChange(l.code))}
+              onClick={() => (setOpen(false), track(() => onChange(l.code)))}
               className={cn(
                 "flex h-12 cursor-pointer flex-col items-start justify-center rounded-[20px] px-4 text-left transition-colors duration-150",
                 l.code === value ? "bg-lime text-black" : "hover:bg-raised"

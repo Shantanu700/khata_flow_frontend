@@ -40,6 +40,7 @@ import { useScreenMorph } from "@/components/app/use-screen-morph"
 import { Tip } from "@/components/app/parts"
 import { ApiError, SIGNED_OUT, api, type Me } from "@/lib/api"
 import { reduceMotion } from "@/lib/motion"
+import { ProgressBar } from "@/components/app/progress-bar"
 import { cn } from "@/lib/utils"
 
 // Language, session and the shop's words: what the app must not cache across screens' writes.
@@ -132,8 +133,13 @@ function Gate() {
 
 function Splash() {
   return (
-    <div className="kf-app grid h-dvh place-items-center bg-background">
-      <LogoMark size={60} ring="var(--canvas)" />
+    <div
+      role="status"
+      className="kf-app grid h-dvh place-items-center bg-background"
+    >
+      <span className="animate-pulse motion-reduce:animate-none">
+        <LogoMark size={60} ring="var(--canvas)" />
+      </span>
     </div>
   )
 }
@@ -160,9 +166,12 @@ function App({ me }: { me: Me }) {
     load: (s) => preload(client, s),
   })
 
+  // Writes in flight, for the top progress bar (reads it gets from React Query).
+  const [saving, setSaving] = React.useState(0)
   const run = React.useCallback(
     async <R,>(fn: () => Promise<R>) => {
       if (!reduceMotion()) freezeRolls()
+      setSaving((n) => n + 1)
       try {
         const result = await fn()
         await client.invalidateQueries({
@@ -170,6 +179,7 @@ function App({ me }: { me: Me }) {
         })
         return result
       } finally {
+        setSaving((n) => n - 1)
         await frame()
         rollTexts()
       }
@@ -199,11 +209,16 @@ function App({ me }: { me: Me }) {
   const setLanguage = async (next: string) => {
     if (next === code) return
     if (!reduceMotion()) freezeRolls()
-    const [session] = await Promise.all([
-      write.setLanguage(next),
-      client.prefetchQuery({ queryKey: keys.strings(next) }),
-    ])
-    client.setQueryData(keys.me, session)
+    setSaving((n) => n + 1)
+    try {
+      const [session] = await Promise.all([
+        write.setLanguage(next),
+        client.prefetchQuery({ queryKey: keys.strings(next) }),
+      ])
+      client.setQueryData(keys.me, session)
+    } finally {
+      setSaving((n) => n - 1)
+    }
     await frame()
     rollTexts()
   }
@@ -237,6 +252,7 @@ function App({ me }: { me: Me }) {
   return (
     <LayoutContext value={layout}>
       <ShellContext value={shell}>
+        <ProgressBar saving={saving > 0} />
         <div
           ref={frameRef}
           className={cn(

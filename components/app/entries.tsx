@@ -21,6 +21,7 @@ import {
   Pager,
   SearchField,
   pagesOf,
+  Loading,
 } from "@/components/app/ledger"
 import { useListMotion } from "@/components/app/list-motion"
 import { Dot, UndoButton, toasted } from "@/components/app/parts"
@@ -303,6 +304,7 @@ export function EntriesScreen() {
               </div>
             )
           )}
+          {list.isPending && <Loading />}
           {list.isError && <LoadError onRetry={() => list.refetch()} />}
           {list.data && count === 0 && (
             <p className="px-4 py-7 text-sm text-muted-foreground">

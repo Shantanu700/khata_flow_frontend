@@ -22,6 +22,7 @@ import {
   pagesOf,
   Pager,
   useNotchBox,
+  Loading,
 } from "@/components/app/ledger"
 import { useLiveMic } from "@/components/app/live-mic"
 import { CornerButton, Dot, PanelTitle, Tip } from "@/components/app/parts"
@@ -508,6 +509,7 @@ export function BoloScreen() {
           />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-2">
+          {history.isPending && <Loading />}
           {history.isError && <LoadError onRetry={() => history.refetch()} />}
           {history.data?.results.map((h) => (
             <button
