@@ -444,7 +444,7 @@ export function BoloScreen() {
               setTyped("")
               sendText(text)
             }}
-            className="flex w-full items-center gap-3 rounded-full bg-raised py-1.5 pr-1.5 pl-5 dark:bg-card"
+            className="flex w-full items-center gap-3 rounded-full bg-raised py-1.5 pr-1.5 pl-5 dark:bg-[color-mix(in_oklch,var(--card)_45%,var(--deep))]"
           >
             <KeyboardIcon
               aria-hidden
