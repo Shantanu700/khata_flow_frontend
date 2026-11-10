@@ -29,10 +29,13 @@ registerProcessor("pcm-16k", Pcm16k)`
 /** One loudness value (0–1) every LEVEL_MS, newest last, for the waveform. */
 export type Levels = { values: number[]; at: number }
 export const LEVEL_MS = 60
+// Silence that ends a recording: after speech, and when nothing is said at all.
+const QUIET_MS = 2500
+const NOTHING_MS = 8000
 
 type Session = { ctx: AudioContext; ws: WebSocket | null; timer: number }
 
-/** The microphone while recording: loudness for the waveform, and the live transcript phrase by phrase from
+/** The microphone while recording: loudness for the waveform (and `onQuiet` once the speaker pauses), and the live transcript phrase by phrase from
  *  Gnani's streaming speech-to-text (through the API's WebSocket bridge). Live text is a nicety: if the stream
  *  cannot open, recording carries on without it. */
 export function useLiveMic() {
@@ -41,7 +44,7 @@ export function useLiveMic() {
   const session = React.useRef<Session | null>(null)
 
   const start = React.useCallback(
-    async (stream: MediaStream, language: string) => {
+    async (stream: MediaStream, language: string, onQuiet: () => void) => {
       setPhrases([])
       levels.current = { values: [], at: performance.now() }
       const ctx = new AudioContext()
@@ -50,14 +53,25 @@ export function useLiveMic() {
       analyser.fftSize = 1024
       source.connect(analyser)
       const samples = new Float32Array(analyser.fftSize)
+      // Speech is a level well above the room's running noise floor, so a noisy shop doesn't count as talking.
+      const quiet = { since: performance.now(), heard: false, noise: 0.03 }
       const timer = window.setInterval(() => {
         analyser.getFloatTimeDomainData(samples)
         let sum = 0
         for (const s of samples) sum += s * s
         const values = levels.current.values
-        values.push(Math.min(1, Math.sqrt(sum / samples.length) * 5))
+        const level = Math.min(1, Math.sqrt(sum / samples.length) * 5)
+        values.push(level)
         if (values.length > 300) values.shift()
-        levels.current.at = performance.now()
+        const now = (levels.current.at = performance.now())
+        if (level > Math.max(0.1, quiet.noise * 3)) {
+          quiet.since = now
+          quiet.heard = true
+        } else quiet.noise = quiet.noise * 0.95 + level * 0.05
+        if (now - quiet.since > (quiet.heard ? QUIET_MS : NOTHING_MS)) {
+          quiet.since = Infinity
+          onQuiet()
+        }
       }, LEVEL_MS)
       const mine: Session = { ctx, ws: null, timer }
       session.current = mine

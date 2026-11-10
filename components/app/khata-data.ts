@@ -43,6 +43,7 @@ export const STAGE_DOT: Record<string, string> = {
   ANSWERED: "var(--cyan)",
   NEEDS_CLARIFICATION: "var(--heat-3)",
   FAILED: "var(--red)",
+  CANCELLED: "var(--hairline)",
 }
 
 /** The five money-heat dots on a debtor card: more filled the more they owe against the biggest debtor. */

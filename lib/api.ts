@@ -85,12 +85,18 @@ function fail(status: number, body: { error?: Record<string, never> }): never {
   )
 }
 
-/** A voice command with live progress: the API streams one JSON line per pipeline stage as it finishes
- *  ({"stage": "stt", "ms": 1749}), then {"command": …} or {"error": …}. */
+export type Progress = {
+  onId: (id: number) => void
+  onStage: (stage: string, ms: number) => void
+  signal: AbortSignal
+}
+
+/** A voice command with live progress: the API streams its id ({"id": 42}), then one JSON line per pipeline stage
+ *  as it finishes ({"stage": "stt", "ms": 1749}), then {"command": …} or {"error": …}. */
 export async function apiProgress<T>(
   path: string,
   { json, form }: { json?: unknown; form?: FormData },
-  onStage: (stage: string, ms: number) => void
+  { onId, onStage, signal }: Progress
 ): Promise<T> {
   const res = await fetch(
     `/api/kf/${path.replace(/^\/|\/$/g, "")}?progress=1`,
@@ -99,6 +105,7 @@ export async function apiProgress<T>(
       headers:
         json === undefined ? undefined : { "content-type": "application/json" },
       body: form ?? JSON.stringify(json),
+      signal,
     }
   )
   if (!res.ok || !res.body) fail(res.status, await res.json().catch(() => ({})))
@@ -113,7 +120,8 @@ export async function apiProgress<T>(
       buffer = buffer.slice(end + 1)
       if (event.command) return event.command as T
       if (event.error) fail(409, event)
-      onStage(event.stage, event.ms)
+      if (event.id) onId(event.id)
+      else onStage(event.stage, event.ms)
     }
   }
   return fail(502, {})

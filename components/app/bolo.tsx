@@ -7,6 +7,7 @@ import {
   CircleIcon,
   ListChecksIcon,
   ListTodoIcon,
+  XIcon,
 } from "lucide-react"
 
 import { SIZE, useVoiceHistory } from "@/components/app/data"
@@ -36,7 +37,7 @@ import {
   TraceTitle,
 } from "@/components/ui/trace"
 import { Notch, notchRadius } from "@/components/notch"
-import { apiProgress, type VoiceCommand } from "@/lib/api"
+import { api, apiProgress, type Progress, type VoiceCommand } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 /** The pipeline's stages as the chips show them, and the timings_ms keys each one adds up. */
@@ -52,7 +53,8 @@ const MAX_SECONDS = 19
 
 type Phase = "idle" | "listening" | "working" | "done"
 type Mode = "audio" | "text"
-type OnStage = (stage: string, ms: number) => void
+/** The command in flight; `id` arrives as the stream's first line, and a cancel waits for it. */
+type Job = { abort: AbortController; id?: number; cancelled?: boolean }
 
 const recordingType = () =>
   [
@@ -91,6 +93,7 @@ export function BoloScreen() {
   const recorder = React.useRef<MediaRecorder | null>(null)
   const stopTimer = React.useRef<number | undefined>(undefined)
   const player = React.useRef<HTMLAudioElement | null>(null)
+  const job = React.useRef<Job | null>(null)
   const live = useLiveMic()
 
   // Show a finished command, then play its reply.
@@ -105,37 +108,69 @@ export function BoloScreen() {
     }
   }, [])
 
+  const begin = React.useCallback((kind: Mode) => {
+    const mine: Job = { abort: new AbortController() }
+    job.current = mine
+    setError("")
+    setMode(kind)
+    setTicks({})
+    setPhase("working")
+    return mine
+  }, [])
+
+  // The server reverses anything the command already wrote; only then stop reading its stream.
+  const drop = React.useCallback(
+    (mine: Job) =>
+      run(() => api(`voice/commands/${mine.id}/cancel`, { method: "POST" }))
+        .catch(() => setError(t("error.generic")))
+        .finally(() => mine.abort.abort()),
+    [run, t]
+  )
+
   // Through the shell: whatever the command wrote, every screen refetches and its figures roll.
   const send = React.useCallback(
-    async (call: (onStage: OnStage) => Promise<VoiceCommand>, kind: Mode) => {
-      setError("")
-      setMode(kind)
-      setTicks({})
-      setPhase("working")
-      const onStage: OnStage = (stage, ms) =>
-        setTicks((done) => ({ ...done, [stage]: ms }))
+    async (mine: Job, call: (progress: Progress) => Promise<VoiceCommand>) => {
+      const progress: Progress = {
+        signal: mine.abort.signal,
+        onId: (id) => {
+          mine.id = id
+          if (mine.cancelled) drop(mine)
+        },
+        onStage: (stage, ms) => {
+          if (!mine.cancelled) setTicks((done) => ({ ...done, [stage]: ms }))
+        },
+      }
       try {
-        land(await run(() => call(onStage)))
+        const done = await run(() => call(progress))
+        if (!mine.cancelled) land(done)
       } catch {
+        if (mine.cancelled) return
         setPhase("idle")
         setError(t("error.generic"))
       }
     },
-    [land, run, t]
+    [drop, land, run, t]
   )
+
+  const cancel = () => {
+    const mine = job.current
+    if (!mine || mine.cancelled) return
+    mine.cancelled = true
+    setPhase("idle")
+    setError(t("bolo.stage.CANCELLED"))
+    if (mine.id) drop(mine)
+  }
 
   const sendText = React.useCallback(
     (text: string) =>
-      send(
-        (onStage) =>
-          apiProgress<VoiceCommand>(
-            "voice/text-commands",
-            { json: { text, language: code } },
-            onStage
-          ),
-        "text"
+      send(begin("text"), (progress) =>
+        apiProgress<VoiceCommand>(
+          "voice/text-commands",
+          { json: { text, language: code } },
+          progress
+        )
       ),
-    [send, code]
+    [begin, send, code]
   )
 
   // Text typed in the header's box arrives here.
@@ -173,9 +208,10 @@ export function BoloScreen() {
     rec.ondataavailable = (e) => e.data.size && chunks.push(e.data)
     rec.onstop = async () => {
       window.clearTimeout(stopTimer.current)
-      setPhase("working")
+      const mine = begin("audio")
       await live.stop()
       stream.getTracks().forEach((track) => track.stop())
+      if (mine.cancelled) return
       const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" })
       const form = new FormData()
       form.append(
@@ -184,32 +220,26 @@ export function BoloScreen() {
         `command.${blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm"}`
       )
       form.append("language", code)
-      send(
-        (onStage) =>
-          apiProgress<VoiceCommand>("voice/commands", { form }, onStage),
-        "audio"
+      send(mine, (progress) =>
+        apiProgress<VoiceCommand>("voice/commands", { form }, progress)
       )
     }
+    const finish = () => rec.state === "recording" && rec.stop()
     recorder.current = rec
     rec.start()
     setPhase("listening")
-    void live.start(stream, code)
-    stopTimer.current = window.setTimeout(
-      () => rec.state === "recording" && rec.stop(),
-      MAX_SECONDS * 1000
-    )
+    void live.start(stream, code, finish)
+    stopTimer.current = window.setTimeout(finish, MAX_SECONDS * 1000)
   }
 
   const answer = (body: { option_id?: string; confirm?: boolean }) =>
     command &&
-    send(
-      (onStage) =>
-        apiProgress<VoiceCommand>(
-          `voice/commands/${command.id}/clarify`,
-          { json: body },
-          onStage
-        ),
-      "text"
+    send(begin("text"), (progress) =>
+      apiProgress<VoiceCommand>(
+        `voice/commands/${command.id}/clarify`,
+        { json: body },
+        progress
+      )
     )
 
   const replay = () => {
@@ -254,63 +284,91 @@ export function BoloScreen() {
         </div>
         <div className="-mx-2 flex min-h-0 w-[calc(100%+16px)] flex-1 flex-col overflow-y-auto px-2">
           <div className="m-auto flex w-full flex-col items-center gap-6 py-1">
-            <div className={cn("relative mt-3", phone ? "size-24" : "size-32")}>
-              {phase === "listening" && (
-                <span
-                  aria-hidden
-                  className="absolute inset-0 animate-ring rounded-full bg-lime"
-                />
+            {/* One element that morphs: lime circle → rounded bar holding the waveform → the circle again inside the
+                turning gradient while the command is worked on. */}
+            <div
+              className={cn(
+                "relative isolate mt-3 grid shrink-0 place-items-center transition-[width,height,border-radius] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                phase === "listening"
+                  ? cn(
+                      "w-[520px] max-w-full",
+                      phone ? "h-20 rounded-[28px]" : "h-24 rounded-[32px]"
+                    )
+                  : phone
+                    ? "size-24 rounded-[48px]"
+                    : "size-32 rounded-[64px]",
+                phase === "working" ? "kf-ai-ring p-1" : "bg-lime text-black"
               )}
+            >
               {phase === "working" ? (
                 <div
                   role="img"
                   aria-label={t("bolo.working")}
+                  className="grid size-full place-items-center rounded-[inherit] bg-deep"
+                >
+                  <MicIcon size={40} stroke={1.6} />
+                </div>
+              ) : phase === "listening" ? (
+                <div
                   className={cn(
-                    "kf-ai-ring relative isolate rounded-full p-1",
-                    phone ? "size-24" : "size-32"
+                    "flex size-full animate-in items-center gap-3 duration-300 fade-in-0",
+                    phone ? "pr-4 pl-5" : "pr-5 pl-7"
                   )}
                 >
-                  <div className="grid size-full place-items-center rounded-full bg-deep">
-                    <MicIcon size={40} stroke={1.6} />
-                  </div>
+                  <Waveform
+                    levels={live.levels}
+                    className="min-w-0 flex-1 [--foreground:#000] [--hairline:#000]"
+                  />
+                  <button
+                    type="button"
+                    title={t("bolo.stop")}
+                    aria-label={t("bolo.stop")}
+                    onClick={() =>
+                      recorder.current?.state === "recording" &&
+                      recorder.current.stop()
+                    }
+                    className={cn(
+                      "grid shrink-0 cursor-pointer place-items-center rounded-[12px] bg-black text-lime transition-transform duration-150 active:scale-[0.94]",
+                      phone ? "size-12" : "size-14"
+                    )}
+                  >
+                    <StopIcon size={22} stroke={1.8} />
+                  </button>
                 </div>
               ) : (
                 <button
                   type="button"
-                  title={
-                    phase === "listening" ? t("bolo.stop") : t("bolo.press")
-                  }
-                  aria-label={
-                    phase === "listening" ? t("bolo.stop") : t("bolo.press")
-                  }
-                  aria-pressed={phase === "listening"}
+                  title={t("bolo.press")}
+                  aria-label={t("bolo.press")}
                   onClick={listen}
-                  className={cn(
-                    "relative grid cursor-pointer place-items-center rounded-full bg-lime text-black transition-transform duration-150 active:scale-[0.96]",
-                    phone ? "size-24" : "size-32"
-                  )}
+                  className="grid size-full cursor-pointer place-items-center rounded-[inherit] transition-transform duration-150 active:scale-[0.96]"
                 >
-                  {phase === "listening" ? (
-                    <StopIcon size={36} stroke={1.6} />
-                  ) : (
-                    <MicIcon size={40} stroke={1.6} />
-                  )}
+                  <MicIcon size={40} stroke={1.6} />
                 </button>
               )}
             </div>
-            <p aria-live="polite" className="text-sm text-muted-foreground">
-              {error ||
-                (phase === "listening"
-                  ? t("bolo.listening")
-                  : phase === "working"
-                    ? t("bolo.working")
-                    : phase === "done"
-                      ? t("bolo.again")
-                      : t("bolo.press"))}
-            </p>
-            {phase === "listening" && (
-              <Waveform levels={live.levels} className="max-w-[480px]" />
-            )}
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <p aria-live="polite" className="text-sm text-muted-foreground">
+                {error ||
+                  (phase === "listening"
+                    ? t("bolo.listening")
+                    : phase === "working"
+                      ? t("bolo.working")
+                      : phase === "done"
+                        ? t("bolo.again")
+                        : t("bolo.press"))}
+              </p>
+              {phase === "working" && (
+                <button
+                  type="button"
+                  onClick={cancel}
+                  className="flex h-9 cursor-pointer items-center gap-1.5 rounded-full bg-raised px-4 text-[13px] transition-transform duration-150 active:scale-[0.97] dark:bg-card"
+                >
+                  <XIcon size={14} />
+                  {t("bolo.cancel")}
+                </button>
+              )}
+            </div>
             <p
               aria-live="polite"
               className={cn(

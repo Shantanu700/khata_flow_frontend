@@ -319,6 +319,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/voice/commands/{id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Cancel a command while it runs; an entry it already wrote is reversed. */
+        post: operations["post_v1_voice_commands_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/voice/commands/{id}/clarify/": {
         parameters: {
             query?: never;
@@ -391,9 +408,10 @@ export interface components {
          *     * `COMMITTED` - Committed
          *     * `ANSWERED` - Answered
          *     * `FAILED` - Failed
+         *     * `CANCELLED` - Cancelled
          * @enum {string}
          */
-        CommandStatusEnum: "RECEIVED" | "TRANSCRIBED" | "PARSED" | "NEEDS_CLARIFICATION" | "COMMITTED" | "ANSWERED" | "FAILED";
+        CommandStatusEnum: "RECEIVED" | "TRANSCRIBED" | "PARSED" | "NEEDS_CLARIFICATION" | "COMMITTED" | "ANSWERED" | "FAILED" | "CANCELLED";
         Day: {
             /** Format: date */
             date: string;
@@ -2375,6 +2393,64 @@ export interface operations {
                 };
                 content: {
                     "audio/wav": string;
+                };
+            };
+            /** @description Request body or query parameters failed validation. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description The account has no shop yet. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description A business rule refused the request; the message can be shown to the user. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+        };
+    };
+    post_v1_voice_commands_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Indicates that operation was successful. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceCommand"];
                 };
             };
             /** @description Request body or query parameters failed validation. */
