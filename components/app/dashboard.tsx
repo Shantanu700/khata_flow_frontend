@@ -126,30 +126,36 @@ export function DashboardScreen() {
               subClassName="text-[#434343]"
             />
           </div>
-          {s?.low_stock.map((p) => (
-            <div
-              key={p.id}
-              className="flex items-center gap-3 border-t border-black/10 pt-3.5"
-            >
-              <span className="min-w-0 flex-1 truncate text-base">
-                {p.name}
-              </span>
-              <span
-                data-roll={`low-${p.id}`}
-                className="text-[28px] font-light"
+          {/* Always five rows tall (49px rows, 18px gaps): more scroll, fewer leave the space empty. */}
+          <div
+            data-low-list
+            className="flex h-[calc(5*49px+4*18px)] shrink-0 flex-col gap-[18px] overflow-y-auto overscroll-contain"
+          >
+            {s?.low_stock.map((p) => (
+              <div
+                key={p.id}
+                className="flex shrink-0 items-center gap-3 border-t border-black/10 pt-3.5"
               >
-                {qty(p.stock_level)}
-              </span>
-              <span className="w-20 text-xs text-[#434343]">
-                {t("dash.threshold", { value: qty(p.threshold) })}
-              </span>
-            </div>
-          ))}
-          {s && s.low_stock.length === 0 && (
-            <p className="border-t border-black/10 pt-3.5 text-sm text-[#434343]">
-              {t("dash.lowNone")}
-            </p>
-          )}
+                <span className="min-w-0 flex-1 truncate text-base">
+                  {p.name}
+                </span>
+                <span
+                  data-roll={`low-${p.id}`}
+                  className="text-[28px] font-light"
+                >
+                  {qty(p.stock_level)}
+                </span>
+                <span className="w-20 text-xs text-[#434343]">
+                  {t("dash.threshold", { value: qty(p.threshold) })}
+                </span>
+              </div>
+            ))}
+            {s && s.low_stock.length === 0 && (
+              <p className="border-t border-black/10 pt-3.5 text-sm text-[#434343]">
+                {t("dash.lowNone")}
+              </p>
+            )}
+          </div>
           <CornerButton
             flip="side-tr"
             title={t("dash.openStock")}
