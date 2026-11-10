@@ -149,7 +149,7 @@ export function LogoMark({ size = 44 }: { size?: number }) {
   const inner = Math.round(size * 0.72)
   return (
     <span
-      className="grid shrink-0 place-items-center rounded-full bg-[var(--logo-disc)]"
+      className="grid shrink-0 place-items-center rounded-full bg-[var(--logo-disc)] shadow-[var(--logo-edge)]"
       style={{ width: size, height: size }}
     >
       <Image src={mark} alt="" width={inner} height={inner} priority />
