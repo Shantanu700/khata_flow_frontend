@@ -95,6 +95,8 @@ export function BoloScreen() {
   const [mode, setMode] = React.useState<Mode>("audio")
   const [error, setError] = React.useState("")
   const [typed, setTyped] = React.useState("")
+  // What was typed (or the answer tapped), shown while it is worked on; a recording shows its live transcript.
+  const [sentText, setSentText] = React.useState("")
   const recorder = React.useRef<MediaRecorder | null>(null)
   const stopTimer = React.useRef<number | undefined>(undefined)
   const player = React.useRef<HTMLAudioElement | null>(null)
@@ -175,14 +177,16 @@ export function BoloScreen() {
   }
 
   const sendText = React.useCallback(
-    (text: string) =>
-      send(begin("text"), (progress) =>
+    (text: string) => {
+      setSentText(text)
+      return send(begin("text"), (progress) =>
         apiProgress<VoiceCommand>(
           "voice/text-commands",
           { json: { text, language: code, reply_to: replyTo() } },
           progress
         )
-      ),
+      )
+    },
     [begin, send, code, replyTo]
   )
 
@@ -253,15 +257,20 @@ export function BoloScreen() {
     stopTimer.current = window.setTimeout(finish, MAX_SECONDS * 1000)
   }
 
-  const answer = (body: { option_id?: string; confirm?: boolean }) =>
-    command &&
-    send(begin("text"), (progress) =>
+  const answer = (
+    label: string,
+    body: { option_id?: string; confirm?: boolean }
+  ) => {
+    if (!command) return
+    setSentText(label)
+    return send(begin("text"), (progress) =>
       apiProgress<VoiceCommand>(
         `voice/commands/${command.id}/clarify`,
         { json: body },
         progress
       )
     )
+  }
 
   const replay = () => {
     const url = command && audioUrl(command)
@@ -400,7 +409,11 @@ export function BoloScreen() {
             >
               {phase === "done" && command?.transcript ? (
                 `“${command.transcript}”`
-              ) : phase !== "done" && live.phrases.length ? (
+              ) : phase === "working" && mode === "text" ? (
+                `“${sentText}”`
+              ) : phase !== "done" &&
+                mode === "audio" &&
+                live.phrases.length ? (
                 `“${live.phrases.join(" ")}”`
               ) : phase === "idle" ? (
                 <Greeting />
@@ -446,6 +459,7 @@ export function BoloScreen() {
                         type="button"
                         onClick={() =>
                           answer(
+                            o.label,
                             o.id === "yes" || o.id === "no"
                               ? { confirm: o.id === "yes" }
                               : { option_id: o.id }
