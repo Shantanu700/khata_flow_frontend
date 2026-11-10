@@ -273,6 +273,20 @@
 }
 
 
+/* The type box's edge: the same ring, thinner, slower and fainter; a touch brighter while typing. */
+.kf-ai-ring.kf-ai-soft {
+  animation-duration: 8s;
+}
+.kf-ai-ring.kf-ai-soft::before {
+  filter: blur(10px);
+  opacity: 0.2;
+  transition: opacity 300ms;
+}
+.kf-ai-ring.kf-ai-soft:focus-within::before {
+  opacity: 0.4;
+}
+
+
 @keyframes kf-turn {
   to {
     --kf-turn: 360deg;

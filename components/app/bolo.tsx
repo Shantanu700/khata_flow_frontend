@@ -435,42 +435,44 @@ export function BoloScreen() {
             )}
           </div>
         </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            const text = typed.trim()
-            if (!text || phase === "working" || phase === "listening") return
-            setTyped("")
-            sendText(text)
-          }}
-          className="flex w-full max-w-[560px] items-center gap-3 rounded-full bg-raised py-1.5 pr-1.5 pl-5 transition-shadow duration-150 focus-within:ring-2 focus-within:ring-ring dark:bg-card"
-        >
-          <KeyboardIcon
-            aria-hidden
-            size={18}
-            className="shrink-0 text-muted-foreground"
-          />
-          <input
-            value={typed}
-            onChange={(e) => setTyped(e.target.value)}
-            aria-label={t("bolo.typeTitle")}
-            placeholder={t("bolo.typePlaceholder")}
-            maxLength={500}
-            className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-sm"
-          />
-          <Tip label={t("header.send")}>
-            <button
-              type="submit"
-              aria-label={t("header.send")}
-              disabled={
-                !typed.trim() || phase === "working" || phase === "listening"
-              }
-              className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full bg-foreground text-background transition-opacity duration-150 disabled:cursor-default disabled:opacity-0"
-            >
-              <ArrowIcon size={16} />
-            </button>
-          </Tip>
-        </form>
+        <div className="kf-ai-ring kf-ai-soft relative isolate w-full max-w-[560px] rounded-full p-[1.5px]">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              const text = typed.trim()
+              if (!text || phase === "working" || phase === "listening") return
+              setTyped("")
+              sendText(text)
+            }}
+            className="flex w-full items-center gap-3 rounded-full bg-raised py-1.5 pr-1.5 pl-5 dark:bg-card"
+          >
+            <KeyboardIcon
+              aria-hidden
+              size={18}
+              className="shrink-0 text-muted-foreground"
+            />
+            <input
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              aria-label={t("bolo.typeTitle")}
+              placeholder={t("bolo.typePlaceholder")}
+              maxLength={500}
+              className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-sm"
+            />
+            <Tip label={t("header.send")}>
+              <button
+                type="submit"
+                aria-label={t("header.send")}
+                disabled={
+                  !typed.trim() || phase === "working" || phase === "listening"
+                }
+                className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full bg-foreground text-background transition-opacity duration-150 disabled:cursor-default disabled:opacity-0"
+              >
+                <ArrowIcon size={16} />
+              </button>
+            </Tip>
+          </form>
+        </div>
         <CornerButton
           corner="br"
           flip="main-br"
