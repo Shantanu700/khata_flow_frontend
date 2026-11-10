@@ -374,11 +374,15 @@ export function BoloScreen() {
                 phase === "working" && "text-muted-foreground"
               )}
             >
-              {phase === "done" && command?.transcript
-                ? `“${command.transcript}”`
-                : phase !== "done" && live.phrases.length
-                  ? `“${live.phrases.join(" ")}”`
-                  : ""}
+              {phase === "done" && command?.transcript ? (
+                `“${command.transcript}”`
+              ) : phase !== "done" && live.phrases.length ? (
+                `“${live.phrases.join(" ")}”`
+              ) : phase === "idle" ? (
+                <Greeting />
+              ) : (
+                ""
+              )}
             </p>
             {(phase === "working" || phase === "done") && (
               <ProcessQueue
@@ -550,6 +554,39 @@ export function BoloScreen() {
         </Notch>
       </section>
     </div>
+  )
+}
+
+const EXAMPLES = [1, 2, 3, 4]
+
+/** The idle screen's welcome: a greeting for the time of day, and an example command that changes every few seconds. */
+function Greeting() {
+  const { t } = useI18n()
+  const [hour] = React.useState(() => new Date().getHours())
+  const [at, setAt] = React.useState(0)
+  React.useEffect(() => {
+    const next = window.setInterval(
+      () => setAt((i) => (i + 1) % EXAMPLES.length),
+      3500
+    )
+    return () => window.clearInterval(next)
+  }, [])
+  const hello = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening"
+  return (
+    <span className="flex animate-in flex-col items-center gap-3 duration-500 fade-in-0">
+      <span>
+        <span className="text-muted-foreground">
+          {t(`bolo.hello.${hello}`)}!
+        </span>{" "}
+        {t("bolo.ask")}
+      </span>
+      <span
+        key={at}
+        className="animate-in text-base text-muted-foreground duration-500 fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
+      >
+        {t("bolo.try", { text: t(`bolo.example.${EXAMPLES[at]}`) })}
+      </span>
+    </span>
   )
 }
 
