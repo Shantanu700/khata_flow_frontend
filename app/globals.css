@@ -280,11 +280,11 @@
 .kf-ai-ring.kf-ai-soft::before {
   inset: -2px;
   filter: blur(26px);
-  opacity: 0.4;
+  opacity: 0.28;
   transition: opacity 300ms;
 }
 .kf-ai-ring.kf-ai-soft:focus-within::before {
-  opacity: 0.6;
+  opacity: 0.45;
 }
 
 
