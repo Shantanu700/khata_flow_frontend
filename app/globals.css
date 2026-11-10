@@ -31,7 +31,7 @@
   --lime-ink: var(--lime);
   /* Behind the K mark: a light grey on dark, darker than the K's white half so the two don't merge; a dark
      disc on light (see the light theme). */
-  --logo-disc: #c4c5c0;
+  --logo-disc: #d9d9d9;
   /* Soft red fills: delete buttons, error notes. */
   --danger-soft: #fe9695;
 
