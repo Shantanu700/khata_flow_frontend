@@ -20,7 +20,7 @@ export const SCREEN_FLIP: Record<Screen, string[]> = {
   stock: ["main-card", "main-tr", "main-bl", "main-b", "main-br"],
   staff: ["main-card", "main-tr", "main-bl", "main-b", "main-br"],
   entries: ["main-card", "main-tr"],
-  bolo: ["main-card", "main-br", "side-card"],
+  bolo: ["main-card", "main-tr", "side-card"],
 }
 
 /** Each tab's URL, so a refresh stays on it. One catch-all route serves them all, keeping the shell mounted
