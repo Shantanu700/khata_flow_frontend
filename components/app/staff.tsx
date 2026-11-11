@@ -815,6 +815,7 @@ function StaffCard({
   onPay: (kind: Money) => void
 }) {
   const { t } = useI18n()
+  const { phone } = useLayout()
   const [marking, mark] = usePending()
   const here = s.present_today !== null
   const present = new Set(s.attendance_14d ?? [])
@@ -836,7 +837,12 @@ function StaffCard({
         : KIND_DOT.SALARY_PAID
   return (
     <div className="relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]">
-      <div className="@container flex h-full flex-col justify-between gap-1.5 overflow-y-auto rounded-[32px] p-4 tall:gap-3 tall:p-6">
+      <div
+        className={cn(
+          "@container flex h-full flex-col justify-between gap-1.5 overflow-y-auto rounded-[32px] p-4 tall:gap-3 tall:p-6",
+          phone && "gap-3"
+        )}
+      >
         <div className="flex items-center gap-3 pr-20">
           <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg tall:size-12">
             <Face
@@ -863,7 +869,12 @@ function StaffCard({
         </div>
 
         <div className="flex flex-col gap-1 tall:gap-2.5">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div
+            className={cn(
+              "flex items-center gap-x-4 gap-y-2",
+              phone ? "justify-between" : "flex-wrap"
+            )}
+          >
             <p className="flex items-baseline gap-2">
               <span
                 data-roll={`staff-${s.id}-left`}
@@ -875,24 +886,35 @@ function StaffCard({
                 {t("staff.leftShort")}
               </span>
             </p>
-            {advances > 0 && (
-              <Given
-                icon={<LayersIcon size={16} />}
-                color={KIND_DOT.STAFF_ADVANCE}
-                value={inr(advances)}
-                label={t("staff.advanceLabel")}
-                roll={`staff-${s.id}-adv`}
-              />
-            )}
-            {paid > 0 && (
-              <Given
-                icon={<WalletIcon size={16} />}
-                color={KIND_DOT.SALARY_PAID}
-                value={inr(paid)}
-                label={t("staff.paidLabel")}
-                roll={`staff-${s.id}-paid`}
-              />
-            )}
+            <span
+              className={cn(
+                "contents",
+                phone &&
+                  (advances > 0 || paid > 0) &&
+                  "flex flex-col gap-2 border-l border-line pl-4"
+              )}
+            >
+              {advances > 0 && (
+                <Given
+                  bare={phone}
+                  icon={<LayersIcon size={16} />}
+                  color={KIND_DOT.STAFF_ADVANCE}
+                  value={inr(advances)}
+                  label={t("staff.advanceLabel")}
+                  roll={`staff-${s.id}-adv`}
+                />
+              )}
+              {paid > 0 && (
+                <Given
+                  bare={phone}
+                  icon={<WalletIcon size={16} />}
+                  color={KIND_DOT.SALARY_PAID}
+                  value={inr(paid)}
+                  label={t("staff.paidLabel")}
+                  roll={`staff-${s.id}-paid`}
+                />
+              )}
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <div
@@ -910,6 +932,7 @@ function StaffCard({
         <div
           role="group"
           aria-label={t("staff.last14")}
+          hidden={phone}
           className="flex flex-col gap-1.5 rounded-[20px] bg-card/50 px-3 py-1.5 tall:gap-2.5 tall:px-4 tall:py-3"
         >
           <div className="flex items-center justify-between">
@@ -1041,7 +1064,10 @@ function Given({
   value,
   label,
   roll,
+  bare,
 }: {
+  /** no divider before it: it sits in a stacked column that has its own */
+  bare?: boolean
   icon: React.ReactNode
   color: string
   value: string
@@ -1049,7 +1075,12 @@ function Given({
   roll: string
 }) {
   return (
-    <span className="flex items-center gap-2.5 border-l border-line pl-4">
+    <span
+      className={cn(
+        "flex items-center gap-2.5",
+        !bare && "border-l border-line pl-4"
+      )}
+    >
       <span
         aria-hidden
         className="grid size-8 shrink-0 place-items-center rounded-xl tall:size-10"
@@ -1077,7 +1108,7 @@ function Given({
 
 /** The card's action buttons, in the app's own pill styles: lime for the main action, card-coloured for the rest. */
 const ACTION =
-  "flex h-10 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[14px] whitespace-nowrap transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 tall:h-12 tall:text-[15px]"
+  "flex h-10 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[14px] [&_svg]:shrink-0 whitespace-nowrap transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 tall:h-12 tall:text-[15px]"
 const SECONDARY = "bg-card text-foreground"
 
 function Tile({
