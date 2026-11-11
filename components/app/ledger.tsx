@@ -64,6 +64,14 @@ export function clearNotch(
     : { paddingRight: Math.max(0, box.w - pad + 12) }
 }
 
+/** Phones: the panel's controls in a row above it. The search bar takes the room left over; while it has focus
+ *  the other controls fold away and it grows across the row. */
+export const PHONE_ROW = cn(
+  "flex items-center gap-[10px]",
+  "*:not-first:max-w-60 *:not-first:shrink-0 *:not-first:overflow-hidden *:not-first:transition-[max-width,opacity,margin] *:not-first:duration-300 *:not-first:ease-[cubic-bezier(0.22,1,0.36,1)]",
+  "has-[input[data-row-search]:focus]:*:not-first:-ml-2.5 has-[input[data-row-search]:focus]:*:not-first:max-w-0 has-[input[data-row-search]:focus]:*:not-first:opacity-0"
+)
+
 /** The Lead Flow table card: title on the left, controls in a notch cut into the top-right corner.
  *  The notch stays at every width; below `compact` it holds `compactControls` (round buttons) instead. */
 export function LedgerCard({
@@ -89,7 +97,7 @@ export function LedgerCard({
   const { compact, phone } = useLayout()
   const ref = React.useRef<HTMLElement>(null)
   const box = useNotchBox(ref)
-  return (
+  const card = (
     <section
       ref={ref}
       data-panel
@@ -100,36 +108,48 @@ export function LedgerCard({
         className
       )}
     >
-      <div
-        className="min-h-[58px] min-w-0"
-        style={clearNotch(box, phone, 24, 190)}
-      >
-        <h2 data-roll={flip && "card-title"} className="text-2xl font-normal">
-          {title}
-        </h2>
-        <p
-          data-roll={flip && "card-sub"}
-          className={cn(
-            "font-light text-muted-foreground",
-            phone ? "text-lg" : "text-2xl"
-          )}
+      {/* Phones show no panel title: the screen's header already names it. */}
+      {!phone && (
+        <div
+          className="min-h-[58px] min-w-0"
+          style={clearNotch(box, phone, 24, 190)}
         >
-          {sub}
-        </p>
-      </div>
-      <Notch
-        corner="tr"
-        r={notchRadius(phone ? 44 : 52)}
-        gap={10}
-        data-flip-id={flip && `${flip}-tr`}
-        data-shape={flip ? "" : undefined}
-        className="flex items-center gap-[10px]"
-      >
-        {compact && compactControls ? compactControls : controls}
-      </Notch>
+          <h2 data-roll={flip && "card-title"} className="text-2xl font-normal">
+            {title}
+          </h2>
+          <p
+            data-roll={flip && "card-sub"}
+            className="text-2xl font-light text-muted-foreground"
+          >
+            {sub}
+          </p>
+        </div>
+      )}
+      {!phone && (
+        <Notch
+          corner="tr"
+          r={notchRadius(52)}
+          gap={10}
+          data-flip-id={flip && `${flip}-tr`}
+          data-shape={flip ? "" : undefined}
+          className="flex items-center gap-[10px]"
+        >
+          {compact && compactControls ? compactControls : controls}
+        </Notch>
+      )}
       {toolbar}
       {children}
     </section>
+  )
+  if (!phone) return card
+  // Phones: no notch; the controls sit in a row above the card.
+  return (
+    <div className="flex flex-col gap-[10px]">
+      <div data-flip-id={flip && `${flip}-tr`} className={PHONE_ROW}>
+        {compactControls ?? controls}
+      </div>
+      {card}
+    </div>
   )
 }
 
@@ -183,6 +203,34 @@ export function NotchSearch({
 }) {
   const [open, setOpen] = React.useState(false)
   const { phone } = useLayout()
+  const { t } = useI18n()
+  if (phone)
+    return (
+      <label className="flex h-11 min-w-0 flex-1 cursor-text items-center gap-2.5 rounded-full bg-card px-4 text-muted-foreground">
+        <SearchIcon size={16} />
+        <input
+          data-row-search
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+          placeholder={placeholder}
+          aria-label={label}
+          className="min-w-0 flex-1 bg-transparent text-base text-ellipsis text-foreground outline-none placeholder:text-muted-foreground"
+        />
+        {value && (
+          <button
+            type="button"
+            aria-label={t("search.clear")}
+            // Keeps the focus in the field while clearing it.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onChange("")}
+            className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground"
+          >
+            <CloseIcon size={14} />
+          </button>
+        )}
+      </label>
+    )
   return (
     <>
       <RoundButton
@@ -197,8 +245,8 @@ export function NotchSearch({
         // Typing takes the whole notch; closing folds back into the button (a dot marks an active search).
         <label
           className={cn(
-            "absolute top-0 right-0 left-[10px] z-10 flex items-center gap-2.5 rounded-full bg-card px-[18px] text-muted-foreground",
-            phone ? "h-11" : "h-[52px]"
+            "absolute top-0 right-0 z-10 flex items-center gap-2.5 rounded-full bg-card px-[18px] text-muted-foreground",
+            phone ? "left-0 h-11" : "left-[10px] h-[52px]"
           )}
         >
           <SearchIcon size={16} />
@@ -253,14 +301,21 @@ export function SearchField({
   onChange,
   placeholder,
   label,
+  className,
 }: {
   value: string
   onChange: (v: string) => void
   placeholder: string
   label: string
+  className?: string
 }) {
   return (
-    <label className="flex h-[52px] w-[200px] shrink-0 items-center gap-2.5 rounded-full bg-card px-[18px] text-muted-foreground max-sm:w-full">
+    <label
+      className={cn(
+        "flex h-[52px] w-[200px] shrink-0 items-center gap-2.5 rounded-full bg-card px-[18px] text-muted-foreground max-sm:w-full",
+        className
+      )}
+    >
       <SearchIcon size={16} />
       <input
         value={value}
