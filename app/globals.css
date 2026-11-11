@@ -4,7 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant short (@media (max-height: 860px));
-@custom-variant tall (@media (min-height: 1000px));
+@custom-variant tall (@media (min-height: 1080px));
 @custom-variant coarse (@media (pointer: coarse));
 
 /* Tokens are the HubSpot CRM reference's palette (Design/89-…jpg), sampled from the image.
