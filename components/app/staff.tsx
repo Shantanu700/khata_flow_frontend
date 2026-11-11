@@ -5,6 +5,12 @@ import { toast } from "sonner"
 import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import { Dialog } from "radix-ui"
+import {
+  CalendarCheckIcon,
+  CheckIcon,
+  HandCoinsIcon,
+  WalletIcon,
+} from "lucide-react"
 
 import {
   SIZE,
@@ -17,7 +23,7 @@ import {
 } from "@/components/app/data"
 import { errorText, useI18n } from "@/components/app/i18n"
 import { ChevronIcon, PencilIcon, TrashIcon } from "@/components/app/icons"
-import { entryView } from "@/components/app/khata-data"
+import { entryView, KIND_DOT } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
 import {
   AddButton,
@@ -682,11 +688,18 @@ function StaffCard({
   const here = s.present_today !== null
   const present = new Set(s.attendance_14d ?? [])
   const left = salaryLeft(s)
+  const salary = s.monthly_salary ?? 0
+  const advances = s.staff_due?.advances ?? 0
+  const paid = s.staff_due?.salary_paid ?? 0
+  const days = lastDays(14)
+  // Each part's share of the month's salary, for the bar.
+  const share = (n: number) =>
+    salary > 0 ? `${Math.min(100, (n / salary) * 100)}%` : "0%"
   return (
     <div className="relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]">
-      <div className="flex h-full flex-col justify-between gap-3 overflow-y-auto rounded-[32px] p-6 short:gap-2 short:p-5">
-        <div className="flex items-center gap-3 pr-24">
-          <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg short:size-10">
+      <div className="@container flex h-full flex-col justify-between gap-4 overflow-y-auto rounded-[32px] p-5 short:gap-3 short:p-4">
+        <div className="flex items-center gap-3 pr-20">
+          <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg short:size-10">
             <Face
               name={s.name}
               src={photoSrc(`parties/${s.id}`, s.photo_key)}
@@ -698,57 +711,96 @@ function StaffCard({
               onClick={onLedger}
               aria-label={t("staff.fullAccount", { name: s.name })}
               className={cn(
-                "block max-w-full truncate text-2xl font-light short:text-xl",
+                "block max-w-full truncate text-xl leading-tight",
                 OPENS("after:rounded-[32px]")
               )}
             >
               {s.name}
             </button>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-[13px] text-muted-foreground">
               {t("staff.salaryLine", { salary: inr(s.monthly_salary) })}
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-[10px]">
-          <Tile
-            value={String(s.attendance_14d?.length ?? 0)}
-            label={t("staff.days14")}
-            roll={`staff-${s.id}-att`}
-          />
-          <Tile
-            value={inr(s.staff_due?.advances)}
-            label={t("staff.advanceMonth")}
-            roll={`staff-${s.id}-adv`}
-          />
-          <Tile
-            value={inr(left)}
-            label={t("staff.left")}
-            paper
-            roll={`staff-${s.id}-left`}
-          />
-        </div>
-        <div role="group" aria-label={t("staff.last14")}>
-          <div className="grid grid-cols-[repeat(14,minmax(0,1fr))] gap-1">
-            {lastDays(14).map((iso, i) => (
-              <div key={iso} className="flex flex-col items-center gap-1.5">
-                <Tip
-                  label={`${parseDay(iso).toLocaleDateString(locale, { day: "numeric", month: "short" })}: ${t(present.has(iso) ? "staff.mark.present" : "staff.mark.absent")}`}
-                >
-                  <span
-                    className={cn(
-                      "aspect-square w-full max-w-6 rounded-full",
-                      present.has(iso) ? "bg-cyan" : "bg-card"
-                    )}
-                  />
-                </Tip>
-                <span className="text-[10px] text-muted-foreground short:hidden">
-                  {i === 13 ? t("day.today") : parseDay(iso).getDate()}
-                </span>
-              </div>
-            ))}
+
+        <div className="flex flex-col gap-2">
+          <p className="flex items-baseline gap-2">
+            <span
+              data-roll={`staff-${s.id}-left`}
+              className="text-[clamp(24px,2.2vw,30px)] leading-none font-light whitespace-nowrap"
+            >
+              {inr(left)}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              {t("staff.left")}
+            </span>
+          </p>
+          <div
+            aria-hidden
+            className="flex h-2.5 overflow-hidden rounded-full bg-card"
+          >
+            <span
+              className="h-full transition-[width] duration-500"
+              style={{
+                width: share(advances),
+                background: KIND_DOT.STAFF_ADVANCE,
+              }}
+            />
+            <span
+              className="h-full transition-[width] duration-500"
+              style={{ width: share(paid), background: KIND_DOT.SALARY_PAID }}
+            />
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Dot color={KIND_DOT.STAFF_ADVANCE} size={8} />
+              {t("staff.col.advance")}
+              <span
+                data-roll={`staff-${s.id}-adv`}
+                className="text-foreground tabular-nums"
+              >
+                {inr(advances)}
+              </span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Dot color={KIND_DOT.SALARY_PAID} size={8} />
+              {t("staff.col.paid")}
+              <span className="text-foreground tabular-nums">{inr(paid)}</span>
+            </span>
           </div>
         </div>
-        <div className="relative z-10 flex flex-wrap gap-[10px] self-start">
+
+        <div
+          role="group"
+          aria-label={t("staff.last14")}
+          className="flex items-center gap-3"
+        >
+          <div className="grid max-w-[340px] flex-1 grid-cols-[repeat(14,minmax(0,1fr))] items-center justify-items-center gap-1">
+            {days.map((iso, i) => (
+              <Tip
+                key={iso}
+                label={`${i === 13 ? t("day.today") : parseDay(iso).toLocaleDateString(locale, { day: "numeric", month: "short" })}: ${t(present.has(iso) ? "staff.mark.present" : "staff.mark.absent")}`}
+              >
+                <span
+                  className={cn(
+                    "aspect-square w-full max-w-3.5 rounded-full",
+                    present.has(iso) ? "bg-cyan" : "bg-card",
+                    i === 13 &&
+                      "ring-2 ring-foreground/35 ring-offset-2 ring-offset-raised"
+                  )}
+                />
+              </Tip>
+            ))}
+          </div>
+          <span
+            data-roll={`staff-${s.id}-att`}
+            className="shrink-0 text-xs text-muted-foreground tabular-nums"
+          >
+            {t("staff.presentOf", { present: present.size, count: 14 })}
+          </span>
+        </div>
+
+        <div className="relative z-10 grid grid-cols-2 gap-2 @md:grid-cols-3">
           <Tip label={here ? t("staff.unmarkTitle") : t("staff.markTitle")}>
             <button
               type="button"
@@ -757,38 +809,47 @@ function StaffCard({
               aria-busy={marking}
               disabled={marking}
               className={cn(
-                "h-10 cursor-pointer rounded-full px-4 text-sm transition-colors duration-150 short:h-9",
-                here ? "bg-lime text-black" : "bg-card"
+                ACTION,
+                "col-span-2 @md:col-span-1",
+                here
+                  ? "bg-transparent text-foreground shadow-[inset_0_0_0_1.5px_var(--lime)]"
+                  : "bg-lime text-black hover:brightness-95"
               )}
             >
-              <span className="inline-flex items-center gap-2">
-                {marking && <Spinner className="size-3.5" />}
-                <Swap on={here} off={t("staff.mark")}>
-                  {t("staff.marked")}
-                </Swap>
-              </span>
+              {marking ? (
+                <Spinner className="size-4" />
+              ) : here ? (
+                <CheckIcon size={16} />
+              ) : (
+                <CalendarCheckIcon size={16} />
+              )}
+              <Swap on={here} off={t("staff.mark")}>
+                {t("staff.marked")}
+              </Swap>
             </button>
           </Tip>
           <Tip label={left <= 0 ? t("staff.salaryGone") : undefined}>
-            <span tabIndex={left <= 0 ? 0 : undefined} className="inline-flex">
+            <span tabIndex={left <= 0 ? 0 : undefined} className="grid">
               <button
                 type="button"
                 onClick={() => onPay("STAFF_ADVANCE")}
                 disabled={left <= 0}
-                className="h-10 cursor-pointer rounded-full bg-card px-4 text-sm disabled:cursor-default disabled:opacity-40 short:h-9"
+                className={cn(ACTION, SECONDARY)}
               >
+                <HandCoinsIcon size={16} />
                 {t("staff.gaveAdvance")}
               </button>
             </span>
           </Tip>
           <Tip label={left <= 0 ? t("staff.salaryGone") : undefined}>
-            <span tabIndex={left <= 0 ? 0 : undefined} className="inline-flex">
+            <span tabIndex={left <= 0 ? 0 : undefined} className="grid">
               <button
                 type="button"
                 onClick={() => onPay("SALARY_PAID")}
                 disabled={left <= 0}
-                className="h-10 cursor-pointer rounded-full bg-card px-4 text-sm disabled:cursor-default disabled:opacity-40 short:h-9"
+                className={cn(ACTION, SECONDARY)}
               >
+                <WalletIcon size={16} />
                 {t("staff.paidSalary")}
               </button>
             </span>
@@ -806,6 +867,12 @@ function StaffCard({
     </div>
   )
 }
+
+/** The card's action buttons: full width of their column, so they read as buttons, not tags. */
+const ACTION =
+  "flex h-11 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[14px] font-medium whitespace-nowrap transition-[transform,background-color,filter] duration-150 active:scale-[0.98] disabled:cursor-default disabled:opacity-40 short:h-10"
+const SECONDARY =
+  "bg-card text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--foreground)_14%,transparent)] hover:bg-[color-mix(in_oklch,var(--card)_85%,var(--foreground))]"
 
 function Tile({
   value,
