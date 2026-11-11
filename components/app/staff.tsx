@@ -109,7 +109,7 @@ export function StaffScreen() {
     person: Party
     kind: Money
   } | null>(null)
-  const { phone, narrow, compact, low } = useLayout()
+  const { phone, narrow, compact } = useLayout()
   const q = useDebounced(query.trim())
   const size = view === "cards" ? SIZE.staffCards : SIZE.table
   const list = useStaff({
@@ -326,10 +326,7 @@ export function StaffScreen() {
             className={cn(
               "grid gap-[10px]",
               !narrow && "grid-cols-2",
-              !compact &&
-                (low
-                  ? "min-h-0 flex-1 auto-rows-max content-start overflow-y-auto"
-                  : "min-h-0 flex-1 grid-rows-2")
+              !compact && "min-h-0 flex-1 grid-rows-2"
             )}
           >
             {shown.map((s) => (
@@ -842,7 +839,7 @@ function StaffCard({
   ].filter((x) => x !== false)
   return (
     <div className="relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]">
-      <div className="@container flex h-full flex-col justify-between gap-1.5 overflow-y-auto rounded-[32px] p-4 tall:gap-4 tall:p-6">
+      <div className="@container flex h-full flex-col justify-between gap-2 overflow-y-auto rounded-[32px] p-4 tall:gap-5 tall:p-6">
         <div className="flex items-center gap-3 pr-20">
           <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg tall:size-12">
             <Face
@@ -868,11 +865,11 @@ function StaffCard({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1 tall:gap-2.5">
+        <div className="flex flex-col gap-1 tall:gap-3">
           <p className="flex items-baseline gap-2.5">
             <span
               data-roll={`staff-${s.id}-left`}
-              className="text-[clamp(26px,2.4vw,34px)] leading-none font-light whitespace-nowrap tall:text-[clamp(32px,3vw,46px)]"
+              className="text-[clamp(26px,2.4vw,34px)] leading-none font-light whitespace-nowrap tall:text-[clamp(34px,3.2vw,52px)]"
             >
               {inr(left)}
             </span>
@@ -942,7 +939,7 @@ function StaffCard({
                     : "absent"
                 }
                 onPick={(mark) => setDay(s, iso, mark)}
-                className="w-full max-w-5 tall:max-w-7"
+                className="w-full max-w-5 tall:max-w-8"
               >
                 <span
                   className={cn(
@@ -1036,7 +1033,7 @@ function StaffCard({
 
 /** The card's action buttons, in the app's own pill styles: lime for the main action, card-coloured for the rest. */
 const ACTION =
-  "flex h-10 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[14px] whitespace-nowrap transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 tall:h-12 tall:text-[15px]"
+  "flex h-10 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[14px] whitespace-nowrap transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 tall:h-14 tall:text-[16px]"
 const SECONDARY = "bg-card text-foreground"
 
 function Tile({
