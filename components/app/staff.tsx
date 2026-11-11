@@ -5,12 +5,7 @@ import { toast } from "sonner"
 import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import { Dialog } from "radix-ui"
-import {
-  CalendarCheckIcon,
-  CheckIcon,
-  HandCoinsIcon,
-  WalletIcon,
-} from "lucide-react"
+import { CalendarCheckIcon, HandCoinsIcon, WalletIcon } from "lucide-react"
 
 import {
   SIZE,
@@ -697,9 +692,9 @@ function StaffCard({
     salary > 0 ? `${Math.min(100, (n / salary) * 100)}%` : "0%"
   return (
     <div className="relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]">
-      <div className="@container flex h-full flex-col justify-between gap-4 overflow-y-auto rounded-[32px] p-5 short:gap-3 short:p-4">
+      <div className="@container flex h-full flex-col justify-between gap-5 overflow-y-auto rounded-[32px] p-6 short:gap-3 short:p-4">
         <div className="flex items-center gap-3 pr-20">
-          <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg short:size-10">
+          <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg short:size-10">
             <Face
               name={s.name}
               src={photoSrc(`parties/${s.id}`, s.photo_key)}
@@ -711,23 +706,23 @@ function StaffCard({
               onClick={onLedger}
               aria-label={t("staff.fullAccount", { name: s.name })}
               className={cn(
-                "block max-w-full truncate text-xl leading-tight",
+                "block max-w-full truncate text-2xl leading-tight short:text-xl",
                 OPENS("after:rounded-[32px]")
               )}
             >
               {s.name}
             </button>
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-sm text-muted-foreground short:text-[13px]">
               {t("staff.salaryLine", { salary: inr(s.monthly_salary) })}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5 short:gap-2">
           <p className="flex items-baseline gap-2">
             <span
               data-roll={`staff-${s.id}-left`}
-              className="text-[clamp(24px,2.2vw,30px)] leading-none font-light whitespace-nowrap"
+              className="text-[clamp(28px,2.6vw,44px)] leading-none font-light whitespace-nowrap short:text-[clamp(24px,2.2vw,30px)]"
             >
               {inr(left)}
             </span>
@@ -737,7 +732,7 @@ function StaffCard({
           </p>
           <div
             aria-hidden
-            className="flex h-2.5 overflow-hidden rounded-full bg-card"
+            className="flex h-3 overflow-hidden rounded-full bg-card short:h-2.5"
           >
             <span
               className="h-full transition-[width] duration-500"
@@ -751,7 +746,7 @@ function StaffCard({
               style={{ width: share(paid), background: KIND_DOT.SALARY_PAID }}
             />
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground short:text-xs">
             <span className="flex items-center gap-1.5">
               <Dot color={KIND_DOT.STAFF_ADVANCE} size={8} />
               {t("staff.col.advance")}
@@ -775,26 +770,33 @@ function StaffCard({
           aria-label={t("staff.last14")}
           className="flex items-center gap-3"
         >
-          <div className="grid max-w-[340px] flex-1 grid-cols-[repeat(14,minmax(0,1fr))] items-center justify-items-center gap-1">
+          <div className="grid max-w-[560px] flex-1 grid-cols-[repeat(14,minmax(0,1fr))] items-center justify-items-center gap-1 short:max-w-[340px]">
             {days.map((iso, i) => (
-              <Tip
+              <span
                 key={iso}
-                label={`${i === 13 ? t("day.today") : parseDay(iso).toLocaleDateString(locale, { day: "numeric", month: "short" })}: ${t(present.has(iso) ? "staff.mark.present" : "staff.mark.absent")}`}
+                className="flex w-full flex-col items-center gap-1.5"
               >
-                <span
-                  className={cn(
-                    "aspect-square w-full max-w-3.5 rounded-full",
-                    present.has(iso) ? "bg-cyan" : "bg-card",
-                    i === 13 &&
-                      "ring-2 ring-foreground/35 ring-offset-2 ring-offset-raised"
-                  )}
-                />
-              </Tip>
+                <Tip
+                  label={`${i === 13 ? t("day.today") : parseDay(iso).toLocaleDateString(locale, { day: "numeric", month: "short" })}: ${t(present.has(iso) ? "staff.mark.present" : "staff.mark.absent")}`}
+                >
+                  <span
+                    className={cn(
+                      "aspect-square w-full max-w-6 rounded-full short:max-w-3.5",
+                      present.has(iso) ? "bg-cyan" : "bg-card",
+                      i === 13 &&
+                        "ring-2 ring-foreground/35 ring-offset-2 ring-offset-raised"
+                    )}
+                  />
+                </Tip>
+                <span className="text-[11px] text-muted-foreground tabular-nums short:hidden">
+                  {i === 13 ? t("day.today") : parseDay(iso).getDate()}
+                </span>
+              </span>
             ))}
           </div>
           <span
             data-roll={`staff-${s.id}-att`}
-            className="shrink-0 text-xs text-muted-foreground tabular-nums"
+            className="shrink-0 text-sm text-muted-foreground tabular-nums short:text-xs"
           >
             {t("staff.presentOf", { present: present.size, count: 14 })}
           </span>
@@ -818,10 +820,8 @@ function StaffCard({
             >
               {marking ? (
                 <Spinner className="size-4" />
-              ) : here ? (
-                <CheckIcon size={16} />
               ) : (
-                <CalendarCheckIcon size={16} />
+                !here && <CalendarCheckIcon size={16} />
               )}
               <Swap on={here} off={t("staff.mark")}>
                 {t("staff.marked")}
@@ -870,7 +870,7 @@ function StaffCard({
 
 /** The card's action buttons: full width of their column, so they read as buttons, not tags. */
 const ACTION =
-  "flex h-11 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[14px] font-medium whitespace-nowrap transition-[transform,background-color,filter] duration-150 active:scale-[0.98] disabled:cursor-default disabled:opacity-40 short:h-10"
+  "flex h-12 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[15px] font-medium whitespace-nowrap transition-[transform,background-color,filter] duration-150 active:scale-[0.98] disabled:cursor-default disabled:opacity-40 short:h-10 short:text-[14px]"
 const SECONDARY =
   "bg-card text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--foreground)_14%,transparent)] hover:bg-[color-mix(in_oklch,var(--card)_85%,var(--foreground))]"
 
