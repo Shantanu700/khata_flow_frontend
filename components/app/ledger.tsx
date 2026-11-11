@@ -139,7 +139,12 @@ export function LedgerCard({
     <div className="flex flex-col gap-[10px]">
       <div
         data-flip-id={flip && `${flip}-tr`}
-        className="relative flex items-center justify-end gap-[10px] [&>:first-child]:mr-auto"
+        className={cn(
+          "flex items-center gap-[10px]",
+          // While the search has focus the other controls fold away and it grows across the row.
+          "*:not-first:max-w-60 *:not-first:shrink-0 *:not-first:overflow-hidden *:not-first:transition-[max-width,opacity,margin] *:not-first:duration-300 *:not-first:ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "has-[input[data-row-search]:focus]:*:not-first:-ml-2.5 has-[input[data-row-search]:focus]:*:not-first:max-w-0 has-[input[data-row-search]:focus]:*:not-first:opacity-0"
+        )}
       >
         {compactControls ?? controls}
       </div>
@@ -198,6 +203,34 @@ export function NotchSearch({
 }) {
   const [open, setOpen] = React.useState(false)
   const { phone } = useLayout()
+  const { t } = useI18n()
+  if (phone)
+    return (
+      <label className="flex h-11 min-w-0 flex-1 cursor-text items-center gap-2.5 rounded-full bg-card px-4 text-muted-foreground">
+        <SearchIcon size={16} />
+        <input
+          data-row-search
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => e.key === "Escape" && e.currentTarget.blur()}
+          placeholder={placeholder}
+          aria-label={label}
+          className="min-w-0 flex-1 bg-transparent text-base text-ellipsis text-foreground outline-none placeholder:text-muted-foreground"
+        />
+        {value && (
+          <button
+            type="button"
+            aria-label={t("search.clear")}
+            // Keeps the focus in the field while clearing it.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onChange("")}
+            className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground"
+          >
+            <CloseIcon size={14} />
+          </button>
+        )}
+      </label>
+    )
   return (
     <>
       <RoundButton
