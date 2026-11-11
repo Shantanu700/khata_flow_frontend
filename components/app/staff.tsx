@@ -834,7 +834,6 @@ function StaffCard({
       : advances > 0
         ? KIND_DOT.STAFF_ADVANCE
         : KIND_DOT.SALARY_PAID
-  const remaining = salary > 0 ? Math.round((left / salary) * 100) : 0
   return (
     <div className="relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]">
       <div className="@container flex h-full flex-col justify-between gap-1.5 overflow-y-auto rounded-[32px] p-4 tall:gap-3 tall:p-6">
@@ -861,12 +860,6 @@ function StaffCard({
               {t("staff.perMonth", { salary: inr(s.monthly_salary) })}
             </p>
           </div>
-          {s.is_active && (
-            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-card px-3 py-1 text-xs text-lime @sm:flex tall:text-sm">
-              <Dot color="var(--lime)" size={7} />
-              {t("staff.active")}
-            </span>
-          )}
         </div>
 
         <div className="flex flex-col gap-1 tall:gap-2.5">
@@ -879,7 +872,7 @@ function StaffCard({
                 {inr(left)}
               </span>
               <span className="text-xs text-muted-foreground tall:text-sm">
-                {t("staff.leftOf", { salary: inr(salary) })}
+                {t("staff.leftShort")}
               </span>
             </p>
             {advances > 0 && (
@@ -911,9 +904,6 @@ function StaffCard({
                 style={{ width: `${given}%`, background: fill }}
               />
             </div>
-            <span className="shrink-0 text-xs text-muted-foreground tabular-nums tall:text-sm">
-              {t("staff.remaining", { pct: remaining })}
-            </span>
           </div>
         </div>
 
