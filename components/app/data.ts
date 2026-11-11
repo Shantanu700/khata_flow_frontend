@@ -272,6 +272,9 @@ export type ProductBody = {
   low_stock_threshold: number
   is_active?: boolean
 }
+/** A staff member's day: a full day, a half day, or no attendance. */
+export type DayMark = "present" | "half" | "absent"
+
 export type EntryBody = {
   kind: Exclude<EntryKind, "REVERSAL">
   party?: number
@@ -297,6 +300,11 @@ export const write = {
   addEntry: (body: EntryBody) =>
     api<Entry>("entries", { method: "POST", json: body }),
   undo: (id: number) => api<Entry>(`entries/${id}/undo`, { method: "POST" }),
+  setAttendance: (id: number, on: string, mark: DayMark) =>
+    api<Party>(`parties/${id}/attendance`, {
+      method: "PUT",
+      json: { on, mark },
+    }),
   setLanguage: (code: string) =>
     api<Me>("me", {
       method: "PUT",

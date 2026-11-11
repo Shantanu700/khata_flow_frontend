@@ -4,8 +4,8 @@ import * as React from "react"
 import { toast } from "sonner"
 import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
-import { Dialog } from "radix-ui"
-import { CalendarCheckIcon, HandCoinsIcon, WalletIcon } from "lucide-react"
+import { Dialog, DropdownMenu } from "radix-ui"
+import { CheckIcon } from "lucide-react"
 
 import {
   SIZE,
@@ -15,8 +15,9 @@ import {
   useStaffMoves,
   useSummary,
   write,
+  type DayMark,
 } from "@/components/app/data"
-import { errorText, useI18n } from "@/components/app/i18n"
+import { dayLabel, errorText, useI18n } from "@/components/app/i18n"
 import { ChevronIcon, PencilIcon, TrashIcon } from "@/components/app/icons"
 import { entryView, KIND_DOT } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
@@ -55,7 +56,7 @@ import {
 } from "@/components/app/photo"
 import { useShell } from "@/components/app/shell"
 import { Segmented } from "@/components/segmented"
-import { inr, isoDay, parseDay, type Party } from "@/lib/api"
+import { inr, isoDay, type Party } from "@/lib/api"
 import { reduceMotion } from "@/lib/motion"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
@@ -384,7 +385,7 @@ export function StaffScreen() {
   )
 }
 
-type Mark = "present" | "absent" | "none" | "future"
+type Mark = "present" | "half" | "absent" | "none" | "future"
 
 function StaffLedger({ person }: { person: Party }) {
   const { t, locale } = useI18n()
@@ -398,6 +399,8 @@ function StaffLedger({ person }: { person: Party }) {
   const joined = person.created_at.slice(0, 10)
   const since = [joined, person.first_entry_on ?? joined].sort()[0]
   const present = new Set(data.data?.present_days ?? [])
+  const half = new Set(data.data?.half_days ?? [])
+  const setDay = useSetDay()
   const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7
   const days = Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => {
     const iso = isoDay(new Date(y, m - 1, i + 1))
@@ -405,14 +408,16 @@ function StaffLedger({ person }: { person: Party }) {
       iso > today
         ? "future"
         : present.has(iso)
-          ? "present"
+          ? half.has(iso)
+            ? "half"
+            : "present"
           : iso < joined
             ? "none"
             : "absent"
     return { day: i + 1, iso, mark }
   })
   const recorded = days.filter(
-    (x) => x.mark === "present" || x.mark === "absent"
+    (x) => x.mark === "present" || x.mark === "half" || x.mark === "absent"
   ).length
   const rows = (moves.data?.results ?? []).map((e) => entryView(e, t, locale))
   const step = (by: number) => {
@@ -548,19 +553,15 @@ function StaffLedger({ person }: { person: Party }) {
                 {w}
               </span>
             ))}
-          {days.map((x, i) => (
-            <Tip
-              key={x.day}
-              label={
-                x.mark === "future" ? undefined : t(`staff.mark.${x.mark}`)
-              }
-            >
+          {days.map((x, i) => {
+            const cell = (
               <span
                 data-tl-dot
                 style={i === 0 ? { gridColumnStart: lead + 1 } : undefined}
                 className={cn(
                   "mx-auto grid aspect-square w-full max-w-8 place-items-center rounded-full text-[13px] tabular-nums",
                   x.mark === "present" && "bg-cyan text-black",
+                  x.mark === "half" && cn(HALF_ON_RAISED, "text-black"),
                   x.mark === "absent" && "bg-raised",
                   x.mark === "none" &&
                     "border border-dashed border-line text-muted-foreground",
@@ -571,13 +572,40 @@ function StaffLedger({ person }: { person: Party }) {
               >
                 {x.day}
               </span>
-            </Tip>
-          ))}
+            )
+            const editable =
+              x.iso >= editFrom() && x.mark !== "future" && x.mark !== "none"
+            return editable ? (
+              <DayMenu
+                key={x.day}
+                on={x.iso}
+                current={x.mark as DayMark}
+                onPick={(mark) => setDay(person, x.iso, mark)}
+                className="mx-auto w-full max-w-8"
+                style={i === 0 ? { gridColumnStart: lead + 1 } : undefined}
+              >
+                {cell}
+              </DayMenu>
+            ) : (
+              <Tip
+                key={x.day}
+                label={
+                  x.mark === "future" ? undefined : t(`staff.mark.${x.mark}`)
+                }
+              >
+                {cell}
+              </Tip>
+            )
+          })}
         </div>
         <div className="flex flex-wrap gap-4 px-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Dot color="var(--cyan)" size={8} />
             {t("staff.mark.present")}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className={cn("size-2 rounded-full", HALF_ON_RAISED)} />
+            {t("staff.mark.half")}
           </span>
           <span className="flex items-center gap-1.5">
             <Dot color="var(--raised)" size={8} />
@@ -665,6 +693,107 @@ function MonthButton({
   )
 }
 
+// A half day: the dot half filled, on the card's and the calendar's ground.
+const HALF_ON_CARD =
+  "bg-[linear-gradient(90deg,var(--cyan)_50%,var(--card)_50%)]"
+const HALF_ON_RAISED =
+  "bg-[linear-gradient(90deg,var(--cyan)_50%,var(--raised)_50%)]"
+
+/** The first day attendance can be changed: the 1st of last month (the server holds the same line). */
+const editFrom = () => {
+  const now = new Date()
+  return isoDay(new Date(now.getFullYear(), now.getMonth() - 1, 1))
+}
+
+function useSetDay() {
+  const { run } = useShell()
+  const { t, locale } = useI18n()
+  return (s: Party, on: string, mark: DayMark) =>
+    run(() => write.setAttendance(s.id, on, mark))
+      .then(
+        toasted(
+          t("toast.attendanceSet", {
+            name: s.name,
+            date: dayLabel(on, t, locale),
+            mark: t(`staff.mark.${mark}`),
+          })
+        )
+      )
+      .catch((e) => toast.error(errorText(e, t)))
+}
+
+const DAY_MARKS: DayMark[] = ["present", "half", "absent"]
+
+/** A day you can change: tap it for Present, Half day or Absent. */
+function DayMenu({
+  on,
+  current,
+  onPick,
+  className,
+  style,
+  children,
+}: {
+  on: string
+  current: DayMark
+  onPick: (mark: DayMark) => void
+  className?: string
+  style?: React.CSSProperties
+  children: React.ReactNode
+}) {
+  const { t, locale } = useI18n()
+  const label = dayLabel(on, t, locale)
+  return (
+    <DropdownMenu.Root modal={false}>
+      <DropdownMenu.Trigger
+        aria-label={`${t("staff.changeDay", { date: label })}: ${t(`staff.mark.${current}`)}`}
+        style={style}
+        className={cn(
+          "relative z-10 cursor-pointer rounded-full transition-transform duration-150 outline-none hover:scale-110 focus-visible:ring-2 focus-visible:ring-lime data-[state=open]:scale-110",
+          className
+        )}
+      >
+        {children}
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          sideOffset={8}
+          collisionPadding={12}
+          className="z-50 min-w-44 animate-in rounded-[20px] bg-card p-1.5 text-foreground shadow-xl ring-1 ring-foreground/10 duration-150 fade-in-0 zoom-in-95"
+        >
+          <DropdownMenu.Label className="px-3 pt-1.5 pb-1 text-xs text-muted-foreground">
+            {t("staff.changeDay", { date: label })}
+          </DropdownMenu.Label>
+          <DropdownMenu.RadioGroup
+            value={current}
+            onValueChange={(v) => v !== current && onPick(v as DayMark)}
+          >
+            {DAY_MARKS.map((mark) => (
+              <DropdownMenu.RadioItem
+                key={mark}
+                value={mark}
+                className="flex cursor-pointer items-center gap-2.5 rounded-[14px] px-3 py-2.5 text-sm outline-none select-none data-[highlighted]:bg-raised"
+              >
+                <span
+                  className={cn(
+                    "size-3 rounded-full",
+                    mark === "present" && "bg-cyan",
+                    mark === "half" && HALF_ON_RAISED,
+                    mark === "absent" && "bg-raised ring-1 ring-foreground/20"
+                  )}
+                />
+                {t(`staff.mark.${mark}`)}
+                <DropdownMenu.ItemIndicator className="ml-auto">
+                  <CheckIcon size={14} />
+                </DropdownMenu.ItemIndicator>
+              </DropdownMenu.RadioItem>
+            ))}
+          </DropdownMenu.RadioGroup>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  )
+}
+
 function StaffCard({
   s,
   onEdit,
@@ -678,10 +807,12 @@ function StaffCard({
   onPresent: () => unknown
   onPay: (kind: Money) => void
 }) {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const [marking, mark] = usePending()
   const here = s.present_today !== null
   const present = new Set(s.attendance_14d ?? [])
+  const half = new Set(s.half_days_14d ?? [])
+  const setDay = useSetDay()
   const left = salaryLeft(s)
   const salary = s.monthly_salary ?? 0
   const advances = s.staff_due?.advances ?? 0
@@ -690,9 +821,20 @@ function StaffCard({
   // Each part's share of the month's salary, for the bar.
   const share = (n: number) =>
     salary > 0 ? `${Math.min(100, (n / salary) * 100)}%` : "0%"
+  // The bar's legend: only what was given this month, each in its colour on the bar.
+  const spent = [
+    advances > 0 && {
+      color: KIND_DOT.STAFF_ADVANCE,
+      text: t("staff.advanceGiven", { amount: inr(advances) }),
+    },
+    paid > 0 && {
+      color: KIND_DOT.SALARY_PAID,
+      text: t("staff.salaryGiven", { amount: inr(paid) }),
+    },
+  ].filter((x) => x !== false)
   return (
     <div className="relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]">
-      <div className="@container flex h-full flex-col justify-between gap-5 overflow-y-auto rounded-[32px] p-6 short:gap-3 short:p-4">
+      <div className="@container flex h-full flex-col justify-between gap-5 overflow-y-auto rounded-[32px] p-6 short:gap-2 short:p-4">
         <div className="flex items-center gap-3 pr-20">
           <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg short:size-10">
             <Face
@@ -706,36 +848,36 @@ function StaffCard({
               onClick={onLedger}
               aria-label={t("staff.fullAccount", { name: s.name })}
               className={cn(
-                "block max-w-full truncate text-2xl leading-tight short:text-xl",
+                "block max-w-full truncate text-2xl leading-tight font-medium short:text-lg",
                 OPENS("after:rounded-[32px]")
               )}
             >
               {s.name}
             </button>
-            <p className="text-sm text-muted-foreground short:text-[13px]">
-              {t("staff.salaryLine", { salary: inr(s.monthly_salary) })}
+            <p className="text-sm text-muted-foreground">
+              {t("staff.perMonth", { salary: inr(s.monthly_salary) })}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col gap-2.5 short:gap-2">
-          <p className="flex items-baseline gap-2">
+        <div className="flex flex-col gap-3 short:gap-1">
+          <p className="flex items-baseline gap-2.5">
             <span
               data-roll={`staff-${s.id}-left`}
-              className="text-[clamp(28px,2.6vw,44px)] leading-none font-light whitespace-nowrap short:text-[clamp(24px,2.2vw,30px)]"
+              className="text-[clamp(34px,3.2vw,52px)] leading-none font-light whitespace-nowrap short:text-[clamp(26px,2.4vw,34px)]"
             >
               {inr(left)}
             </span>
-            <span className="text-sm text-muted-foreground">
-              {t("staff.left")}
+            <span className="text-base text-muted-foreground">
+              {t("staff.leftShort")}
             </span>
           </p>
           <div
             aria-hidden
-            className="flex h-3 overflow-hidden rounded-full bg-card short:h-2.5"
+            className="flex h-2.5 overflow-hidden rounded-full bg-card short:h-2"
           >
             <span
-              className="h-full transition-[width] duration-500"
+              className="h-full rounded-full transition-[width] duration-500"
               style={{
                 width: share(advances),
                 background: KIND_DOT.STAFF_ADVANCE,
@@ -746,63 +888,72 @@ function StaffCard({
               style={{ width: share(paid), background: KIND_DOT.SALARY_PAID }}
             />
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground short:text-xs">
-            <span className="flex items-center gap-1.5">
-              <Dot color={KIND_DOT.STAFF_ADVANCE} size={8} />
-              {t("staff.col.advance")}
-              <span
-                data-roll={`staff-${s.id}-adv`}
-                className="text-foreground tabular-nums"
-              >
-                {inr(advances)}
-              </span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Dot color={KIND_DOT.SALARY_PAID} size={8} />
-              {t("staff.col.paid")}
-              <span className="text-foreground tabular-nums">{inr(paid)}</span>
-            </span>
-          </div>
+          {spent.length > 0 && (
+            <p
+              data-roll={`staff-${s.id}-adv`}
+              className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground tabular-nums short:text-xs"
+            >
+              {spent.map((x) => (
+                <span key={x.text} className="flex items-center gap-1.5">
+                  <Dot color={x.color} size={8} />
+                  {x.text}
+                </span>
+              ))}
+            </p>
+          )}
         </div>
 
         <div
           role="group"
           aria-label={t("staff.last14")}
-          className="flex flex-col-reverse gap-2 @md:flex-row @md:items-center @md:gap-3"
+          className="flex flex-col gap-2.5 short:gap-1.5"
         >
-          <div className="grid flex-1 grid-cols-[repeat(14,minmax(0,1fr))] items-center justify-items-center gap-1.5 @md:max-w-[560px] @md:gap-1 @md:short:max-w-[340px]">
+          <div className="flex items-baseline justify-between text-sm text-muted-foreground short:text-xs">
+            <span>{t("staff.attendance")}</span>
+            <span data-roll={`staff-${s.id}-att`} className="tabular-nums">
+              {t("staff.presentOf", {
+                present: present.size - half.size / 2,
+                count: 14,
+              })}
+            </span>
+          </div>
+          <div className="grid grid-cols-[repeat(14,minmax(0,1fr))] items-center justify-items-center gap-1.5">
             {days.map((iso, i) => (
-              <span
+              <DayMenu
                 key={iso}
-                className="flex w-full flex-col items-center gap-1.5"
+                on={iso}
+                current={
+                  present.has(iso)
+                    ? half.has(iso)
+                      ? "half"
+                      : "present"
+                    : "absent"
+                }
+                onPick={(mark) => setDay(s, iso, mark)}
+                className="w-full max-w-8 short:max-w-5"
               >
-                <Tip
-                  label={`${i === 13 ? t("day.today") : parseDay(iso).toLocaleDateString(locale, { day: "numeric", month: "short" })}: ${t(present.has(iso) ? "staff.mark.present" : "staff.mark.absent")}`}
-                >
-                  <span
-                    className={cn(
-                      "aspect-square w-full max-w-6 rounded-full short:max-w-3.5",
-                      present.has(iso) ? "bg-cyan" : "bg-card",
-                      i === 13 &&
-                        "ring-2 ring-foreground/35 @md:ring-offset-2 @md:ring-offset-raised"
-                    )}
-                  />
-                </Tip>
-                <span className="text-[11px] text-muted-foreground tabular-nums short:hidden">
-                  {i === 13 ? t("day.today") : parseDay(iso).getDate()}
-                </span>
-              </span>
+                <span
+                  className={cn(
+                    "block aspect-square w-full rounded-full",
+                    present.has(iso)
+                      ? half.has(iso)
+                        ? HALF_ON_CARD
+                        : "bg-cyan"
+                      : "bg-card",
+                    i === 13 &&
+                      !present.has(iso) &&
+                      "bg-transparent shadow-[inset_0_0_0_2.5px_color-mix(in_oklch,var(--foreground)_55%,transparent)]",
+                    i === 13 &&
+                      present.has(iso) &&
+                      "shadow-[0_0_0_2.5px_color-mix(in_oklch,var(--foreground)_55%,transparent)]"
+                  )}
+                />
+              </DayMenu>
             ))}
           </div>
-          <span
-            data-roll={`staff-${s.id}-att`}
-            className="shrink-0 text-sm text-muted-foreground tabular-nums short:text-xs"
-          >
-            {t("staff.presentOf", { present: present.size, count: 14 })}
-          </span>
         </div>
 
-        <div className="relative z-10 grid grid-cols-2 gap-2 @md:grid-cols-3">
+        <div className="relative z-10 grid grid-cols-3 gap-2">
           <Tip label={here ? t("staff.unmarkTitle") : t("staff.markTitle")}>
             <button
               type="button"
@@ -812,23 +963,20 @@ function StaffCard({
               disabled={marking}
               className={cn(
                 ACTION,
-                "col-span-2 @md:col-span-1",
                 here
                   ? "bg-transparent text-foreground shadow-[inset_0_0_0_1.5px_var(--lime)]"
-                  : "bg-lime text-black hover:brightness-95"
+                  : SECONDARY
               )}
             >
-              {marking ? (
-                <Spinner className="size-4" />
-              ) : (
-                !here && <CalendarCheckIcon size={16} />
-              )}
-              <Swap on={here} off={t("staff.mark")}>
-                {t("staff.marked")}
+              {marking && <Spinner className="size-4" />}
+              <Swap on={here} off={t("staff.btn.attendance")}>
+                {t("staff.btn.attendanceDone")}
               </Swap>
             </button>
           </Tip>
-          <Tip label={left <= 0 ? t("staff.salaryGone") : undefined}>
+          <Tip
+            label={left <= 0 ? t("staff.salaryGone") : t("staff.gaveAdvance")}
+          >
             <span tabIndex={left <= 0 ? 0 : undefined} className="grid">
               <button
                 type="button"
@@ -836,12 +984,13 @@ function StaffCard({
                 disabled={left <= 0}
                 className={cn(ACTION, SECONDARY)}
               >
-                <HandCoinsIcon size={16} />
-                {t("staff.gaveAdvance")}
+                {t("staff.btn.advance")}
               </button>
             </span>
           </Tip>
-          <Tip label={left <= 0 ? t("staff.salaryGone") : undefined}>
+          <Tip
+            label={left <= 0 ? t("staff.salaryGone") : t("staff.paidSalary")}
+          >
             <span tabIndex={left <= 0 ? 0 : undefined} className="grid">
               <button
                 type="button"
@@ -849,8 +998,7 @@ function StaffCard({
                 disabled={left <= 0}
                 className={cn(ACTION, SECONDARY)}
               >
-                <WalletIcon size={16} />
-                {t("staff.paidSalary")}
+                {t("staff.btn.salary")}
               </button>
             </span>
           </Tip>
@@ -870,7 +1018,7 @@ function StaffCard({
 
 /** The card's action buttons: full width of their column, so they read as buttons, not tags. */
 const ACTION =
-  "flex h-12 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[15px] font-medium whitespace-nowrap transition-[transform,background-color,filter] duration-150 active:scale-[0.98] disabled:cursor-default disabled:opacity-40 short:h-10 short:text-[14px]"
+  "flex h-14 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[16px] font-medium whitespace-nowrap transition-[transform,background-color,filter] duration-150 active:scale-[0.98] disabled:cursor-default disabled:opacity-40 short:h-10 short:text-[14px]"
 const SECONDARY =
   "bg-card text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--foreground)_14%,transparent)] hover:bg-[color-mix(in_oklch,var(--card)_85%,var(--foreground))]"
 
