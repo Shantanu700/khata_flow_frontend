@@ -5,7 +5,12 @@ import { toast } from "sonner"
 import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import { Dialog, DropdownMenu } from "radix-ui"
-import { CheckIcon } from "lucide-react"
+import {
+  CalendarCheckIcon,
+  CheckIcon,
+  HandCoinsIcon,
+  WalletIcon,
+} from "lucide-react"
 
 import {
   SIZE,
@@ -834,9 +839,9 @@ function StaffCard({
   ].filter((x) => x !== false)
   return (
     <div className="relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]">
-      <div className="@container flex h-full flex-col justify-between gap-5 overflow-y-auto rounded-[32px] p-6 short:gap-2 short:p-4">
+      <div className="@container flex h-full flex-col justify-between gap-2 overflow-y-auto rounded-[32px] p-4 tall:gap-5 tall:p-6">
         <div className="flex items-center gap-3 pr-20">
-          <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg short:size-10">
+          <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg tall:size-12">
             <Face
               name={s.name}
               src={photoSrc(`parties/${s.id}`, s.photo_key)}
@@ -848,7 +853,7 @@ function StaffCard({
               onClick={onLedger}
               aria-label={t("staff.fullAccount", { name: s.name })}
               className={cn(
-                "block max-w-full truncate text-2xl leading-tight font-medium short:text-lg",
+                "block max-w-full truncate text-lg leading-tight font-medium tall:text-2xl",
                 OPENS("after:rounded-[32px]")
               )}
             >
@@ -860,11 +865,11 @@ function StaffCard({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 short:gap-1">
+        <div className="flex flex-col gap-1 tall:gap-3">
           <p className="flex items-baseline gap-2.5">
             <span
               data-roll={`staff-${s.id}-left`}
-              className="text-[clamp(34px,3.2vw,52px)] leading-none font-light whitespace-nowrap short:text-[clamp(26px,2.4vw,34px)]"
+              className="text-[clamp(26px,2.4vw,34px)] leading-none font-light whitespace-nowrap tall:text-[clamp(34px,3.2vw,52px)]"
             >
               {inr(left)}
             </span>
@@ -872,7 +877,7 @@ function StaffCard({
               {t("staff.leftShort")}
             </span>
           </p>
-          <div aria-hidden className="h-2.5 rounded-full bg-card short:h-2">
+          <div aria-hidden className="h-2 rounded-full bg-card tall:h-2.5">
             {/* One rounded fill for everything given; inside it, advance and salary split by amount. */}
             <div
               className="flex h-full gap-0.5 overflow-hidden rounded-full transition-[width] duration-500"
@@ -895,7 +900,7 @@ function StaffCard({
           {spent.length > 0 && (
             <p
               data-roll={`staff-${s.id}-adv`}
-              className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground tabular-nums short:text-xs"
+              className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums tall:text-sm"
             >
               {spent.map((x) => (
                 <span key={x.text} className="flex items-center gap-1.5">
@@ -910,9 +915,9 @@ function StaffCard({
         <div
           role="group"
           aria-label={t("staff.last14")}
-          className="flex flex-col gap-2.5 short:gap-1.5"
+          className="flex flex-col gap-1.5 tall:gap-2.5"
         >
-          <div className="flex items-baseline justify-between text-sm text-muted-foreground short:text-xs">
+          <div className="flex items-baseline justify-between text-xs text-muted-foreground tall:text-sm">
             <span>{t("staff.attendance")}</span>
             <span data-roll={`staff-${s.id}-att`} className="tabular-nums">
               {t("staff.presentOf", {
@@ -934,7 +939,7 @@ function StaffCard({
                     : "absent"
                 }
                 onPick={(mark) => setDay(s, iso, mark)}
-                className="w-full max-w-8 short:max-w-5"
+                className="w-full max-w-5 tall:max-w-8"
               >
                 <span
                   className={cn(
@@ -969,10 +974,14 @@ function StaffCard({
                 ACTION,
                 here
                   ? "bg-transparent text-foreground shadow-[inset_0_0_0_1.5px_var(--lime)]"
-                  : SECONDARY
+                  : "bg-lime text-black"
               )}
             >
-              {marking && <Spinner className="size-4" />}
+              {marking ? (
+                <Spinner className="size-4" />
+              ) : (
+                !here && <CalendarCheckIcon size={16} aria-hidden />
+              )}
               <Swap on={here} off={t("staff.btn.attendance")}>
                 {t("staff.btn.attendanceDone")}
               </Swap>
@@ -988,6 +997,7 @@ function StaffCard({
                 disabled={left <= 0}
                 className={cn(ACTION, SECONDARY)}
               >
+                <HandCoinsIcon size={16} aria-hidden />
                 {t("staff.btn.advance")}
               </button>
             </span>
@@ -1002,6 +1012,7 @@ function StaffCard({
                 disabled={left <= 0}
                 className={cn(ACTION, SECONDARY)}
               >
+                <WalletIcon size={16} aria-hidden />
                 {t("staff.btn.salary")}
               </button>
             </span>
@@ -1020,11 +1031,10 @@ function StaffCard({
   )
 }
 
-/** The card's action buttons: full width of their column, so they read as buttons, not tags. */
+/** The card's action buttons, in the app's own pill styles: lime for the main action, card-coloured for the rest. */
 const ACTION =
-  "flex h-14 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[16px] font-medium whitespace-nowrap transition-[transform,background-color,filter] duration-150 active:scale-[0.98] disabled:cursor-default disabled:opacity-40 short:h-10 short:text-[14px]"
-const SECONDARY =
-  "bg-card text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--foreground)_14%,transparent)] hover:bg-[color-mix(in_oklch,var(--card)_85%,var(--foreground))]"
+  "flex h-10 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[14px] whitespace-nowrap transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 tall:h-14 tall:text-[16px]"
+const SECONDARY = "bg-card text-foreground"
 
 function Tile({
   value,
