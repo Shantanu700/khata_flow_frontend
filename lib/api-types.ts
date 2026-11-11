@@ -211,6 +211,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/parties/{id}/attendance/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Set one day: present, half day or absent (this month and last month). Changes are written as corrections. */
+        put: operations["put_v1_parties_attendance"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties/{id}/month/": {
         parameters: {
             query?: never;
@@ -463,6 +480,14 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AttendanceRequest: {
+            /**
+             * Format: date
+             * @description This month or last month, up to today.
+             */
+            on: string;
+            mark: components["schemas"]["MarkEnum"];
+        };
         AudioCommandRequest: {
             /** Format: binary */
             audio: string;
@@ -655,6 +680,13 @@ export interface components {
             /** Format: double */
             threshold: number;
         };
+        /**
+         * @description * `present` - present
+         *     * `half` - half
+         *     * `absent` - absent
+         * @enum {string}
+         */
+        MarkEnum: "present" | "half" | "absent";
         Me: {
             readonly username: string;
             shop: components["schemas"]["Shop"];
@@ -742,7 +774,10 @@ export interface components {
             readonly staff_due: components["schemas"]["StaffDueFields"] | null;
             /** @description The id of today's attendance entry (undo it to un-mark), or null. */
             readonly present_today: number | null;
+            /** @description Days with attendance (full or half) in the last 14 days. */
             readonly attendance_14d: string[] | null;
+            /** @description Which of those were half days. */
+            readonly half_days_14d: string[] | null;
             /** Format: date */
             readonly last_entry_on: string | null;
             /** Format: date */
@@ -861,6 +896,10 @@ export interface components {
         StaffDue: {
             id: number;
             name: string;
+            /**
+             * Format: double
+             * @description Half days count 0.5.
+             */
             days_present: number;
             days_in_month: number;
             /** Format: double */
@@ -873,6 +912,10 @@ export interface components {
             due: number;
         };
         StaffDueFields: {
+            /**
+             * Format: double
+             * @description Half days count 0.5.
+             */
             days_present: number;
             days_in_month: number;
             /** Format: double */
@@ -886,6 +929,10 @@ export interface components {
         };
         StaffMonth: {
             month: string;
+            /**
+             * Format: double
+             * @description Half days count 0.5.
+             */
             days_present: number;
             days_in_month: number;
             /** Format: double */
@@ -899,6 +946,8 @@ export interface components {
             /** Format: double */
             monthly_salary: number | null;
             present_days: string[];
+            /** @description Which present days were half days. */
+            half_days: string[];
         };
         StreamTicket: {
             ticket: string;
@@ -2026,6 +2075,69 @@ export interface operations {
         requestBody?: never;
         responses: {
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Party"];
+                };
+            };
+            /** @description Request body or query parameters failed validation. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description The account has no shop yet. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description A business rule refused the request; the message can be shown to the user. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+        };
+    };
+    put_v1_parties_attendance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttendanceRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AttendanceRequest"];
+                "multipart/form-data": components["schemas"]["AttendanceRequest"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
