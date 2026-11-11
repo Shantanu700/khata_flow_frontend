@@ -145,13 +145,27 @@ export function StockScreen() {
         }
         compactControls={
           <>
-            <NotchSearch
-              value={query}
-              onChange={(v) => (setQuery(v), setPage(1))}
-              placeholder={t("stock.search")}
-              label={t("stock.search")}
-            />
-            <FilterButton active={show !== "sab"}>
+            {!phone && (
+              <NotchSearch
+                value={query}
+                onChange={(v) => (setQuery(v), setPage(1))}
+                placeholder={t("stock.search")}
+                label={t("stock.search")}
+              />
+            )}
+            <FilterButton
+              active={show !== "sab"}
+              search={
+                phone
+                  ? {
+                      value: query,
+                      onChange: (v) => (setQuery(v), setPage(1)),
+                      placeholder: t("stock.search"),
+                      label: t("stock.search"),
+                    }
+                  : undefined
+              }
+            >
               <Segmented
                 label={t("stock.showLabel")}
                 options={showOptions}
@@ -633,13 +647,27 @@ function StockLedger() {
         }
         compactControls={
           <>
-            <NotchSearch
-              value={query}
-              onChange={reset(setQuery)}
-              placeholder={t("entries.search")}
-              label={t("moves.searchLabel")}
-            />
-            <FilterButton active={sort !== "-id" || range !== null}>
+            {!phone && (
+              <NotchSearch
+                value={query}
+                onChange={reset(setQuery)}
+                placeholder={t("entries.search")}
+                label={t("moves.searchLabel")}
+              />
+            )}
+            <FilterButton
+              active={sort !== "-id" || range !== null}
+              search={
+                phone
+                  ? {
+                      value: query,
+                      onChange: reset(setQuery),
+                      placeholder: t("entries.search"),
+                      label: t("moves.searchLabel"),
+                    }
+                  : undefined
+              }
+            >
               <Segmented
                 label={t("sort.label")}
                 options={sorts}

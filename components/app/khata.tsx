@@ -36,6 +36,7 @@ import {
   RoundButton,
   ViewToggle,
   clearNotch,
+  notchHeading,
   pagesOf,
   useNotchBox,
   type View,
@@ -90,6 +91,7 @@ export function KhataScreen() {
   const { phone, narrow } = useLayout()
   const listRef = React.useRef<HTMLElement>(null)
   const box = useNotchBox(listRef)
+  const listHeading = notchHeading(box, phone, 16, 130)
   const q = useDebounced(query.trim())
   const list = useCustomers({
     q: q || undefined,
@@ -128,11 +130,12 @@ export function KhataScreen() {
           data-shape=""
           className="relative flex min-h-0 flex-col gap-1.5 rounded-[32px] bg-card p-4"
         >
-          <div
-            className="min-h-[52px] px-2 pt-1"
-            style={clearNotch(box, phone, 16, 130)}
-          >
-            <h2 data-roll="side-title" className="text-2xl font-normal">
+          <div className="min-h-[52px] px-2 pt-1" style={listHeading.wrap}>
+            <h2
+              data-roll="side-title"
+              className="text-2xl font-normal"
+              style={listHeading.title}
+            >
               {t("khata.listTitle")}
             </h2>
             <p data-roll="side-sub" className="text-sm text-muted-foreground">
