@@ -122,27 +122,13 @@ export function EntriesScreen() {
         }
         compactControls={
           <>
-            {!phone && (
-              <NotchSearch
-                value={query}
-                onChange={reset(setQuery)}
-                placeholder={t("entries.search")}
-                label={t("entries.searchLabel")}
-              />
-            )}
-            <FilterButton
-              active={sort !== "-id" || range !== null}
-              search={
-                phone
-                  ? {
-                      value: query,
-                      onChange: reset(setQuery),
-                      placeholder: t("entries.search"),
-                      label: t("entries.searchLabel"),
-                    }
-                  : undefined
-              }
-            >
+            <NotchSearch
+              value={query}
+              onChange={reset(setQuery)}
+              placeholder={t("entries.search")}
+              label={t("entries.searchLabel")}
+            />
+            <FilterButton active={sort !== "-id" || range !== null}>
               <Segmented
                 label={t("sort.label")}
                 options={sorts}

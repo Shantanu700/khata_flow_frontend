@@ -64,22 +64,6 @@ export function clearNotch(
     : { paddingRight: Math.max(0, box.w - pad + 12) }
 }
 
-/** Like clearNotch, for a heading of a title and a sub line. On a phone, when the whole heading won't fit beside
- *  the notch, only the title sits beside it and the sub line runs full width under it (the title alone is taller
- *  than the card's padding is short of the notch, so the sub clears it): no empty tab beside the notch. */
-export function notchHeading(
-  box: { w: number; h: number; card: number },
-  phone: boolean,
-  pad: number,
-  min = 140
-): { wrap: React.CSSProperties; title: React.CSSProperties } {
-  if (!box.w) return { wrap: {}, title: {} }
-  const beside = box.card - box.w - pad - 12
-  if (phone && beside < min)
-    return { wrap: {}, title: { paddingRight: Math.max(0, box.w - pad + 12) } }
-  return { wrap: clearNotch(box, phone, pad, min), title: {} }
-}
-
 /** The Lead Flow table card: title on the left, controls in a notch cut into the top-right corner.
  *  The notch stays at every width; below `compact` it holds `compactControls` (round buttons) instead. */
 export function LedgerCard({
@@ -105,7 +89,6 @@ export function LedgerCard({
   const { compact, phone } = useLayout()
   const ref = React.useRef<HTMLElement>(null)
   const box = useNotchBox(ref)
-  const heading = notchHeading(box, phone, 24, 190)
   const card = (
     <section
       ref={ref}
@@ -117,27 +100,23 @@ export function LedgerCard({
         className
       )}
     >
-      <div
-        className={cn("min-w-0", !phone && "min-h-[58px]")}
-        style={heading.wrap}
-      >
-        <h2
-          data-roll={flip && "card-title"}
-          className="text-2xl font-normal"
-          style={heading.title}
+      {/* Phones show no panel title: the screen's header already names it. */}
+      {!phone && (
+        <div
+          className="min-h-[58px] min-w-0"
+          style={clearNotch(box, phone, 24, 190)}
         >
-          {title}
-        </h2>
-        {/* Phones show just the title: the counts are in the list itself. */}
-        {!phone && (
+          <h2 data-roll={flip && "card-title"} className="text-2xl font-normal">
+            {title}
+          </h2>
           <p
             data-roll={flip && "card-sub"}
             className="text-2xl font-light text-muted-foreground"
           >
             {sub}
           </p>
-        )}
-      </div>
+        </div>
+      )}
       {!phone && (
         <Notch
           corner="tr"
@@ -160,7 +139,7 @@ export function LedgerCard({
     <div className="flex flex-col gap-[10px]">
       <div
         data-flip-id={flip && `${flip}-tr`}
-        className="flex items-center justify-end gap-[10px]"
+        className="relative flex items-center justify-end gap-[10px] [&>:first-child]:mr-auto"
       >
         {compactControls ?? controls}
       </div>
@@ -233,8 +212,8 @@ export function NotchSearch({
         // Typing takes the whole notch; closing folds back into the button (a dot marks an active search).
         <label
           className={cn(
-            "absolute top-0 right-0 left-[10px] z-10 flex items-center gap-2.5 rounded-full bg-card px-[18px] text-muted-foreground",
-            phone ? "h-11" : "h-[52px]"
+            "absolute top-0 right-0 z-10 flex items-center gap-2.5 rounded-full bg-card px-[18px] text-muted-foreground",
+            phone ? "left-0 h-11" : "left-[10px] h-[52px]"
           )}
         >
           <SearchIcon size={16} />
@@ -257,22 +236,16 @@ export function NotchSearch({
 /** A condensed notch's filters: one round button opening the screen's toggles and date range. */
 export function FilterButton({
   active,
-  search,
   children,
 }: {
   active: boolean
-  /** On phones the search lives here, at the top of the pop-up, to keep the notch short. */
-  search?: React.ComponentProps<typeof SearchField>
   children: React.ReactNode
 }) {
   const { t } = useI18n()
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
-        <RoundButton
-          title={t("filter.label")}
-          active={active || !!search?.value}
-        >
+        <RoundButton title={t("filter.label")} active={active}>
           <FilterIcon size={18} />
         </RoundButton>
       </Popover.Trigger>
@@ -283,7 +256,6 @@ export function FilterButton({
           collisionPadding={12}
           className="kf-app z-50 flex w-[min(340px,calc(100vw-24px))] flex-col gap-2.5 rounded-[28px] bg-background p-2.5 text-foreground shadow-[0_24px_60px_rgb(0_0_0/0.45)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
-          {search && <SearchField {...search} className="w-full" />}
           {children}
         </Popover.Content>
       </Popover.Portal>

@@ -172,27 +172,13 @@ export function StaffScreen() {
         }
         compactControls={
           <>
-            {!phone && (
-              <NotchSearch
-                value={query}
-                onChange={(v) => (setQuery(v), setPage(1))}
-                placeholder={t("staff.search")}
-                label={t("staff.searchLabel")}
-              />
-            )}
-            <FilterButton
-              active={show !== "sab"}
-              search={
-                phone
-                  ? {
-                      value: query,
-                      onChange: (v) => (setQuery(v), setPage(1)),
-                      placeholder: t("staff.search"),
-                      label: t("staff.searchLabel"),
-                    }
-                  : undefined
-              }
-            >
+            <NotchSearch
+              value={query}
+              onChange={(v) => (setQuery(v), setPage(1))}
+              placeholder={t("staff.search")}
+              label={t("staff.searchLabel")}
+            />
+            <FilterButton active={show !== "sab"}>
               <Segmented
                 label={t("stock.showLabel")}
                 options={showOptions}

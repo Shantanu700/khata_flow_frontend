@@ -145,27 +145,13 @@ export function StockScreen() {
         }
         compactControls={
           <>
-            {!phone && (
-              <NotchSearch
-                value={query}
-                onChange={(v) => (setQuery(v), setPage(1))}
-                placeholder={t("stock.search")}
-                label={t("stock.search")}
-              />
-            )}
-            <FilterButton
-              active={show !== "sab"}
-              search={
-                phone
-                  ? {
-                      value: query,
-                      onChange: (v) => (setQuery(v), setPage(1)),
-                      placeholder: t("stock.search"),
-                      label: t("stock.search"),
-                    }
-                  : undefined
-              }
-            >
+            <NotchSearch
+              value={query}
+              onChange={(v) => (setQuery(v), setPage(1))}
+              placeholder={t("stock.search")}
+              label={t("stock.search")}
+            />
+            <FilterButton active={show !== "sab"}>
               <Segmented
                 label={t("stock.showLabel")}
                 options={showOptions}
@@ -647,27 +633,13 @@ function StockLedger() {
         }
         compactControls={
           <>
-            {!phone && (
-              <NotchSearch
-                value={query}
-                onChange={reset(setQuery)}
-                placeholder={t("entries.search")}
-                label={t("moves.searchLabel")}
-              />
-            )}
-            <FilterButton
-              active={sort !== "-id" || range !== null}
-              search={
-                phone
-                  ? {
-                      value: query,
-                      onChange: reset(setQuery),
-                      placeholder: t("entries.search"),
-                      label: t("moves.searchLabel"),
-                    }
-                  : undefined
-              }
-            >
+            <NotchSearch
+              value={query}
+              onChange={reset(setQuery)}
+              placeholder={t("entries.search")}
+              label={t("moves.searchLabel")}
+            />
+            <FilterButton active={sort !== "-id" || range !== null}>
               <Segmented
                 label={t("sort.label")}
                 options={sorts}
