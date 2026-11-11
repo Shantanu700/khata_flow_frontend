@@ -7,7 +7,9 @@ import gsap from "gsap"
 import { Dialog, DropdownMenu } from "radix-ui"
 import {
   CalendarCheckIcon,
+  CalendarDaysIcon,
   CheckIcon,
+  LayersIcon,
   HandCoinsIcon,
   WalletIcon,
 } from "lucide-react"
@@ -700,7 +702,7 @@ function MonthButton({
 
 // A half day: the dot half filled, on the card's and the calendar's ground.
 const HALF_ON_CARD =
-  "bg-[linear-gradient(90deg,var(--cyan)_50%,var(--card)_50%)]"
+  "bg-[linear-gradient(90deg,var(--cyan)_50%,var(--background)_50%)]"
 const HALF_ON_RAISED =
   "bg-[linear-gradient(90deg,var(--cyan)_50%,var(--raised)_50%)]"
 
@@ -823,23 +825,19 @@ function StaffCard({
   const advances = s.staff_due?.advances ?? 0
   const paid = s.staff_due?.salary_paid ?? 0
   const days = lastDays(14)
-  // Each part's share of the month's salary, for the bar.
-  const share = (n: number) =>
-    salary > 0 ? `${Math.min(100, (n / salary) * 100)}%` : "0%"
-  // The bar's legend: only what was given this month, each in its colour on the bar.
-  const spent = [
-    advances > 0 && {
-      color: KIND_DOT.STAFF_ADVANCE,
-      text: t("staff.advanceGiven", { amount: inr(advances) }),
-    },
-    paid > 0 && {
-      color: KIND_DOT.SALARY_PAID,
-      text: t("staff.salaryGiven", { amount: inr(paid) }),
-    },
-  ].filter((x) => x !== false)
+  // What has gone out of this month's salary, as one rounded fill: advance, then salary paid.
+  const given =
+    salary > 0 ? Math.min(100, ((advances + paid) / salary) * 100) : 0
+  const fill =
+    advances > 0 && paid > 0
+      ? `linear-gradient(90deg, ${KIND_DOT.STAFF_ADVANCE}, ${KIND_DOT.SALARY_PAID})`
+      : advances > 0
+        ? KIND_DOT.STAFF_ADVANCE
+        : KIND_DOT.SALARY_PAID
+  const remaining = salary > 0 ? Math.round((left / salary) * 100) : 0
   return (
     <div className="relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]">
-      <div className="@container flex h-full flex-col justify-between gap-2 overflow-y-auto rounded-[32px] p-4 tall:gap-5 tall:p-6">
+      <div className="@container flex h-full flex-col justify-between gap-1.5 overflow-y-auto rounded-[32px] p-4 tall:gap-3 tall:p-6">
         <div className="flex items-center gap-3 pr-20">
           <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg tall:size-12">
             <Face
@@ -847,7 +845,7 @@ function StaffCard({
               src={photoSrc(`parties/${s.id}`, s.photo_key)}
             />
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <button
               type="button"
               onClick={onLedger}
@@ -863,63 +861,76 @@ function StaffCard({
               {t("staff.perMonth", { salary: inr(s.monthly_salary) })}
             </p>
           </div>
+          {s.is_active && (
+            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-card px-3 py-1 text-xs text-lime @sm:flex tall:text-sm">
+              <Dot color="var(--lime)" size={7} />
+              {t("staff.active")}
+            </span>
+          )}
         </div>
 
-        <div className="flex flex-col gap-1 tall:gap-3">
-          <p className="flex items-baseline gap-2.5">
-            <span
-              data-roll={`staff-${s.id}-left`}
-              className="text-[clamp(26px,2.4vw,34px)] leading-none font-light whitespace-nowrap tall:text-[clamp(34px,3.2vw,52px)]"
-            >
-              {inr(left)}
-            </span>
-            <span className="text-base text-muted-foreground">
-              {t("staff.leftShort")}
-            </span>
-          </p>
-          <div aria-hidden className="h-2 rounded-full bg-card tall:h-2.5">
-            {/* One rounded fill for everything given; inside it, advance and salary split by amount. */}
-            <div
-              className="flex h-full gap-0.5 overflow-hidden rounded-full transition-[width] duration-500"
-              style={{ width: share(advances + paid) }}
-            >
-              {advances > 0 && (
-                <span
-                  className="h-full"
-                  style={{ flex: advances, background: KIND_DOT.STAFF_ADVANCE }}
-                />
-              )}
-              {paid > 0 && (
-                <span
-                  className="h-full"
-                  style={{ flex: paid, background: KIND_DOT.SALARY_PAID }}
-                />
-              )}
-            </div>
-          </div>
-          {spent.length > 0 && (
-            <p
-              data-roll={`staff-${s.id}-adv`}
-              className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums tall:text-sm"
-            >
-              {spent.map((x) => (
-                <span key={x.text} className="flex items-center gap-1.5">
-                  <Dot color={x.color} size={8} />
-                  {x.text}
-                </span>
-              ))}
+        <div className="flex flex-col gap-1 tall:gap-2.5">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <p className="flex items-baseline gap-2">
+              <span
+                data-roll={`staff-${s.id}-left`}
+                className="text-[clamp(26px,2.4vw,32px)] leading-none font-light whitespace-nowrap tall:text-[clamp(32px,3vw,46px)]"
+              >
+                {inr(left)}
+              </span>
+              <span className="text-xs text-muted-foreground tall:text-sm">
+                {t("staff.leftOf", { salary: inr(salary) })}
+              </span>
             </p>
-          )}
+            {advances > 0 && (
+              <Given
+                icon={<LayersIcon size={16} />}
+                color={KIND_DOT.STAFF_ADVANCE}
+                value={inr(advances)}
+                label={t("staff.advanceLabel")}
+                roll={`staff-${s.id}-adv`}
+              />
+            )}
+            {paid > 0 && (
+              <Given
+                icon={<WalletIcon size={16} />}
+                color={KIND_DOT.SALARY_PAID}
+                value={inr(paid)}
+                label={t("staff.paidLabel")}
+                roll={`staff-${s.id}-paid`}
+              />
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <div
+              aria-hidden
+              className="h-2 flex-1 rounded-full bg-card tall:h-2.5"
+            >
+              <div
+                className="h-full rounded-full transition-[width] duration-500"
+                style={{ width: `${given}%`, background: fill }}
+              />
+            </div>
+            <span className="shrink-0 text-xs text-muted-foreground tabular-nums tall:text-sm">
+              {t("staff.remaining", { pct: remaining })}
+            </span>
+          </div>
         </div>
 
         <div
           role="group"
           aria-label={t("staff.last14")}
-          className="flex flex-col gap-1.5 tall:gap-2.5"
+          className="flex flex-col gap-1.5 rounded-[20px] bg-card/50 px-3 py-1.5 tall:gap-2.5 tall:px-4 tall:py-3"
         >
-          <div className="flex items-baseline justify-between text-xs text-muted-foreground tall:text-sm">
-            <span>{t("staff.attendance")}</span>
-            <span data-roll={`staff-${s.id}-att`} className="tabular-nums">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-2 text-sm font-medium tall:text-base">
+              <CalendarDaysIcon size={16} aria-hidden />
+              {t("staff.attendance")}
+            </span>
+            <span
+              data-roll={`staff-${s.id}-att`}
+              className="text-xs text-muted-foreground tabular-nums tall:text-sm"
+            >
               {t("staff.presentOf", {
                 present: present.size - half.size / 2,
                 count: 14,
@@ -939,7 +950,7 @@ function StaffCard({
                     : "absent"
                 }
                 onPick={(mark) => setDay(s, iso, mark)}
-                className="w-full max-w-5 tall:max-w-8"
+                className="w-full max-w-5 tall:max-w-7"
               >
                 <span
                   className={cn(
@@ -948,13 +959,13 @@ function StaffCard({
                       ? half.has(iso)
                         ? HALF_ON_CARD
                         : "bg-cyan"
-                      : "bg-card",
+                      : "bg-background",
                     i === 13 &&
                       !present.has(iso) &&
-                      "bg-transparent shadow-[inset_0_0_0_2.5px_color-mix(in_oklch,var(--foreground)_55%,transparent)]",
+                      "bg-transparent shadow-[inset_0_0_0_2px_color-mix(in_oklch,var(--foreground)_55%,transparent)]",
                     i === 13 &&
                       present.has(iso) &&
-                      "shadow-[0_0_0_2.5px_color-mix(in_oklch,var(--foreground)_55%,transparent)]"
+                      "shadow-[0_0_0_2px_color-mix(in_oklch,var(--foreground)_55%,transparent)]"
                   )}
                 />
               </DayMenu>
@@ -979,8 +990,10 @@ function StaffCard({
             >
               {marking ? (
                 <Spinner className="size-4" />
+              ) : here ? (
+                <CheckIcon size={16} aria-hidden />
               ) : (
-                !here && <CalendarCheckIcon size={16} aria-hidden />
+                <CalendarCheckIcon size={16} aria-hidden />
               )}
               <Swap on={here} off={t("staff.btn.attendance")}>
                 {t("staff.btn.attendanceDone")}
@@ -1031,9 +1044,50 @@ function StaffCard({
   )
 }
 
+/** One amount given this month, beside the figure: its icon on a tint of its colour, then the amount and label. */
+function Given({
+  icon,
+  color,
+  value,
+  label,
+  roll,
+}: {
+  icon: React.ReactNode
+  color: string
+  value: string
+  label: string
+  roll: string
+}) {
+  return (
+    <span className="flex items-center gap-2.5 border-l border-line pl-4">
+      <span
+        aria-hidden
+        className="grid size-8 shrink-0 place-items-center rounded-xl tall:size-10"
+        style={{
+          color,
+          background: `color-mix(in oklch, ${color} 18%, transparent)`,
+        }}
+      >
+        {icon}
+      </span>
+      <span className="leading-tight">
+        <span
+          data-roll={roll}
+          className="block text-sm tabular-nums tall:text-base"
+        >
+          {value}
+        </span>
+        <span className="block text-xs text-muted-foreground tall:text-sm">
+          {label}
+        </span>
+      </span>
+    </span>
+  )
+}
+
 /** The card's action buttons, in the app's own pill styles: lime for the main action, card-coloured for the rest. */
 const ACTION =
-  "flex h-10 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[14px] whitespace-nowrap transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 tall:h-14 tall:text-[16px]"
+  "flex h-10 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[14px] whitespace-nowrap transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 tall:h-12 tall:text-[15px]"
 const SECONDARY = "bg-card text-foreground"
 
 function Tile({
