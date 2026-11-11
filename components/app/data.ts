@@ -3,6 +3,7 @@
 import * as React from "react"
 import {
   keepPreviousData,
+  useInfiniteQuery,
   useQuery,
   type QueryClient,
 } from "@tanstack/react-query"
@@ -11,6 +12,7 @@ import type { Screen } from "@/components/app/khata-data"
 
 import {
   api,
+  type Chat,
   type Entry,
   type EntryKind,
   type Me,
@@ -22,8 +24,14 @@ import {
   type VoiceCommand,
 } from "@/lib/api"
 
-/** Page sizes the screens were designed around. */
-export const SIZE = { list: 8, table: 11, cards: 8, staffCards: 4 } as const
+/** Page sizes the screens were designed around; a chat loads its newest `chat` messages, then more on request. */
+export const SIZE = {
+  list: 8,
+  table: 11,
+  cards: 8,
+  staffCards: 4,
+  chat: 50,
+} as const
 
 export type CustomerParams = {
   q?: string
@@ -76,7 +84,8 @@ export const keys = {
   staff: (p: StaffParams) => ["staff", p] as const,
   staffMonth: (id: number, month: string) => ["staffMonth", id, month] as const,
   entries: (p: EntryParams) => ["entries", p] as const,
-  voice: (page: number) => ["voice", page] as const,
+  chats: (page: number) => ["chats", page] as const,
+  chat: (id: number) => ["chat", id] as const,
 }
 
 const fetchers = {
@@ -88,10 +97,8 @@ const fetchers = {
   entries: (p: EntryParams) =>
     api<Page<Entry>>("entries", { params: { ...p, page_size: SIZE.table } }),
   summary: () => api<Summary>("summary"),
-  voice: (page: number) =>
-    api<Page<VoiceCommand>>("voice/commands", {
-      params: { page, page_size: SIZE.table },
-    }),
+  chats: (page: number) =>
+    api<Page<Chat>>("voice/chats", { params: { page, page_size: SIZE.table } }),
 }
 
 /** Load what a screen shows first, so a tab switch can fetch it during the exit animation. */
@@ -131,8 +138,8 @@ export function preload(client: QueryClient, screen: Screen): Promise<void> {
       })
     case "bolo":
       return client.prefetchQuery({
-        queryKey: keys.voice(1),
-        queryFn: () => fetchers.voice(1),
+        queryKey: keys.chats(1),
+        queryFn: () => fetchers.chats(1),
       })
   }
 }
@@ -251,11 +258,24 @@ export const useEntries = (p: EntryParams) =>
     ...kept,
   })
 
-export const useVoiceHistory = (page = 1) =>
+export const useChats = (page = 1) =>
   useQuery({
-    queryKey: keys.voice(page),
-    queryFn: () => fetchers.voice(page),
+    queryKey: keys.chats(page),
+    queryFn: () => fetchers.chats(page),
     ...kept,
+  })
+
+/** One chat's messages, newest page first; each further page is older. */
+export const useChatMessages = (id: number | null) =>
+  useInfiniteQuery({
+    queryKey: keys.chat(id ?? 0),
+    queryFn: ({ pageParam }) =>
+      api<Page<VoiceCommand>>(`voice/chats/${id}/messages`, {
+        params: { page: pageParam, page_size: SIZE.chat },
+      }),
+    initialPageParam: 1,
+    getNextPageParam: (last, all) => (last.next ? all.length + 1 : undefined),
+    enabled: id !== null,
   })
 
 export type PartyBody = {

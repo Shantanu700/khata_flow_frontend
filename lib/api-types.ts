@@ -301,6 +301,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/voice/chats/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The shop's chats, most recently active first. */
+        get: operations["get_v1_voice_chats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/chats/{id}/messages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One chat's messages, newest first (each is the shopkeeper's words and Khata's reply). */
+        get: operations["get_v1_voice_chats_messages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/voice/commands/": {
         parameters: {
             query?: never;
@@ -433,8 +467,29 @@ export interface components {
             /** Format: binary */
             audio: string;
             language?: components["schemas"]["LanguageEnum"];
-            /** @description The command asking for a missing detail (clarification kind "fill") that this answers. */
-            reply_to?: number;
+            /** @description The chat this message belongs to; left out, a new chat is started. A message may answer the question the chat's previous message asked (a missing detail, yes/no, a change, or which one). */
+            chat?: number;
+        };
+        /**
+         * @description ModelSerializer with per-call `fields=[...]` / `exclude=[...]` subsetting (ModelBase.BASE_MODEL_FIELDS
+         *     are always kept) and `dynamic_keys`: related attributes flattened into read-only top-level fields,
+         *     either "party.name" (becomes party_name) or {"name", "source", "type"}.
+         */
+        Chat: {
+            readonly id: number;
+            readonly status: components["schemas"]["RecordStatusEnum"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            readonly title: string;
+            /** Format: date-time */
+            readonly last_message_at: string;
+            readonly message_count: number;
+            /** @description The newest message's stage. */
+            readonly last_stage: string | null;
+            /** @description Khata's reply to the newest message. */
+            readonly last_reply: string | null;
         };
         ClarifyRequest: {
             option_id?: string;
@@ -606,6 +661,14 @@ export interface components {
         };
         MeRequest: {
             shop: components["schemas"]["ShopRequest"];
+        };
+        PaginatedChat: {
+            count: number;
+            /** Format: uri */
+            next: string | null;
+            /** Format: uri */
+            previous: string | null;
+            results: components["schemas"]["Chat"][];
         };
         PaginatedEntryList: {
             /** @example 123 */
@@ -866,8 +929,8 @@ export interface components {
         TextCommandRequest: {
             text: string;
             language?: components["schemas"]["LanguageEnum"];
-            /** @description The command asking for a missing detail (clarification kind "fill") that this answers. */
-            reply_to?: number;
+            /** @description The chat this message belongs to; left out, a new chat is started. A message may answer the question the chat's previous message asked (a missing detail, yes/no, a change, or which one). */
+            chat?: number;
         };
         /**
          * @description * `PACKET` - Packet
@@ -889,6 +952,7 @@ export interface components {
             readonly created_at: string;
             /** Format: date-time */
             readonly updated_at: string;
+            readonly chat: number | null;
             readonly stage: components["schemas"]["CommandStatusEnum"];
             readonly input_mode: components["schemas"]["InputModeEnum"];
             readonly language: string;
@@ -2572,6 +2636,120 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Summary"];
+                };
+            };
+            /** @description Request body or query parameters failed validation. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description The account has no shop yet. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description A business rule refused the request; the message can be shown to the user. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+        };
+    };
+    get_v1_voice_chats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Indicates that operation was successful. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedChat"];
+                };
+            };
+            /** @description Request body or query parameters failed validation. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description The account has no shop yet. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description A business rule refused the request; the message can be shown to the user. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+        };
+    };
+    get_v1_voice_chats_messages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Indicates that operation was successful. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedVoiceCommand"];
                 };
             };
             /** @description Request body or query parameters failed validation. */
