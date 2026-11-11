@@ -872,21 +872,25 @@ function StaffCard({
               {t("staff.leftShort")}
             </span>
           </p>
-          <div
-            aria-hidden
-            className="flex h-2.5 overflow-hidden rounded-full bg-card short:h-2"
-          >
-            <span
-              className="h-full rounded-full transition-[width] duration-500"
-              style={{
-                width: share(advances),
-                background: KIND_DOT.STAFF_ADVANCE,
-              }}
-            />
-            <span
-              className="h-full transition-[width] duration-500"
-              style={{ width: share(paid), background: KIND_DOT.SALARY_PAID }}
-            />
+          <div aria-hidden className="h-2.5 rounded-full bg-card short:h-2">
+            {/* One rounded fill for everything given; inside it, advance and salary split by amount. */}
+            <div
+              className="flex h-full gap-0.5 overflow-hidden rounded-full transition-[width] duration-500"
+              style={{ width: share(advances + paid) }}
+            >
+              {advances > 0 && (
+                <span
+                  className="h-full"
+                  style={{ flex: advances, background: KIND_DOT.STAFF_ADVANCE }}
+                />
+              )}
+              {paid > 0 && (
+                <span
+                  className="h-full"
+                  style={{ flex: paid, background: KIND_DOT.SALARY_PAID }}
+                />
+              )}
+            </div>
           </div>
           {spent.length > 0 && (
             <p
