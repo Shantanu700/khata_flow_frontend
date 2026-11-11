@@ -46,7 +46,7 @@ export const screenAt = (pathname: string): Screen => {
 export type Unit = Product["unit"]
 export const UNITS: Unit[] = ["PACKET", "KG", "LITRE", "PIECE"]
 
-const KIND_DOT: Record<EntryKind, string> = {
+export const KIND_DOT: Record<EntryKind, string> = {
   CREDIT_GIVEN: "var(--chart-udhaar)",
   PAYMENT_RECEIVED: "var(--chart-vasooli)",
   STOCK_IN: "var(--chart-single)",

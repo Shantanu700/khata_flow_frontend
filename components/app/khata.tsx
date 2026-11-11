@@ -271,45 +271,47 @@ export function KhataScreen() {
                 </div>
               ) : (
                 <>
-                  <div className="flex justify-between px-3 text-xs text-muted-foreground">
+                  <div className="flex justify-between px-4 pb-2 text-sm font-medium text-muted-foreground">
                     <span>{t("khata.listTitle")}</span>
                     <span>{t("col.balance")}</span>
                   </div>
-                  {shown.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => pick(c.id)}
-                      aria-pressed={!narrow && c.id === selectedId}
-                      className={cn(
-                        "flex cursor-pointer items-center gap-3 rounded-3xl p-3 text-left transition-colors duration-150",
-                        !narrow && c.id === selectedId
-                          ? "bg-raised"
-                          : "bg-transparent hover:bg-raised/50"
-                      )}
-                    >
-                      <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-background">
-                        <Face
-                          name={c.name}
-                          src={photoSrc(`parties/${c.id}`, c.photo_key)}
-                        />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-base">
-                          {c.name}
-                        </span>
-                        <span className="block text-xs text-muted-foreground">
-                          {lastLabel(c.last_entry_on, t)}
-                        </span>
-                      </span>
-                      <span
-                        data-roll={`bal-${c.id}`}
-                        className="text-lg font-light"
+                  <div className="flex flex-col gap-1.5">
+                    {shown.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => pick(c.id)}
+                        aria-pressed={!narrow && c.id === selectedId}
+                        className={cn(
+                          "flex cursor-pointer items-center gap-3 rounded-[20px] p-3 text-left transition-colors duration-150",
+                          !narrow && c.id === selectedId
+                            ? "bg-raised ring-2 ring-lime ring-inset"
+                            : "bg-background hover:bg-raised"
+                        )}
                       >
-                        {balanceText(c, t)}
-                      </span>
-                    </button>
-                  ))}
+                        <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-card">
+                          <Face
+                            name={c.name}
+                            src={photoSrc(`parties/${c.id}`, c.photo_key)}
+                          />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-base">
+                            {c.name}
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            {lastLabel(c.last_entry_on, t)}
+                          </span>
+                        </span>
+                        <span
+                          data-roll={`bal-${c.id}`}
+                          className="text-lg font-light"
+                        >
+                          {balanceText(c, t)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </>
               )}
               {list.isPending && <Loading />}

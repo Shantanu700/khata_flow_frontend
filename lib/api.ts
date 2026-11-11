@@ -15,6 +15,7 @@ export type Entry = S["Entry"]
 export type Summary = S["Summary"]
 export type StaffMonth = S["StaffMonth"]
 export type VoiceCommand = S["VoiceCommand"]
+export type Chat = S["Chat"]
 export type Me = S["Me"]
 export type EntryKind = Entry["kind"]
 export type Page<T> = {

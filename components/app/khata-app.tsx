@@ -162,6 +162,7 @@ function App({ me }: { me: Me }) {
   const [theme, toggleTheme] = useTheme()
   const [customerId, setCustomerId] = React.useState<number | null>(null)
   const [said, setSaid] = React.useState<string | null>(null)
+  const [chatId, setChatId] = React.useState<number | null | undefined>()
   const frameRef = React.useRef<HTMLDivElement>(null)
   const contentRef = React.useRef<HTMLDivElement>(null)
   const layout = React.useMemo(() => layoutFor(size.w, size.h), [size])
@@ -259,8 +260,10 @@ function App({ me }: { me: Me }) {
       setCustomerId,
       said,
       setSaid,
+      chatId,
+      setChatId,
     }),
-    [go, run, customerId, said]
+    [go, run, customerId, said, chatId]
   )
 
   const { phone, narrow, compact } = layout

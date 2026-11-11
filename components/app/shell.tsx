@@ -16,6 +16,9 @@ type Shell = {
   /** Text typed in the header's box, waiting for Bolo to send it. */
   said: string | null
   setSaid: (text: string | null) => void
+  /** The chat open on the Speak screen: null for a new one, undefined until the newest has been picked. */
+  chatId: number | null | undefined
+  setChatId: (id: number | null) => void
 }
 
 export const ShellContext = React.createContext<Shell | null>(null)

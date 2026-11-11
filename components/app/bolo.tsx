@@ -8,11 +8,14 @@ import {
   KeyboardIcon,
   ListChecksIcon,
   ListTodoIcon,
+  PlusIcon,
+  Volume2Icon,
+  VolumeXIcon,
   XIcon,
 } from "lucide-react"
 
-import { SIZE, useVoiceHistory } from "@/components/app/data"
-import { useI18n } from "@/components/app/i18n"
+import { SIZE, useChatMessages, useChats } from "@/components/app/data"
+import { dayLabel, useI18n } from "@/components/app/i18n"
 import { ArrowIcon, Branded, MicIcon, PlayIcon } from "@/components/app/icons"
 import { STAGE_DOT } from "@/components/app/khata-data"
 import { useLayout } from "@/components/app/layout"
@@ -39,7 +42,13 @@ import {
   TraceTitle,
 } from "@/components/ui/trace"
 import { Notch, notchRadius } from "@/components/notch"
-import { api, apiProgress, type Progress, type VoiceCommand } from "@/lib/api"
+import {
+  api,
+  apiProgress,
+  isoDay,
+  type Progress,
+  type VoiceCommand,
+} from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 /** The pipeline's stages as the chips show them, and the timings_ms keys each one adds up. */
@@ -50,6 +59,7 @@ const STAGES: { key: string; timings: string[] }[] = [
   { key: "bolo.stage.ledger", timings: ["resolve", "commit"] },
   { key: "bolo.stage.reply", timings: ["tts"] },
 ]
+const MUTE_KEY = "kf-replies-muted"
 // Gnani accepts up to 20 seconds; stop a little before.
 const MAX_SECONDS = 19
 
@@ -67,7 +77,7 @@ const recordingType = () =>
   ].find((t) => MediaRecorder.isTypeSupported(t)) ?? ""
 
 /** The reply's audio through the app's proxy (the API serves it only to the signed-in owner). The audio is cached,
- *  and answering a question gives the same command a new reply, so the URL changes with it. */
+ *  and a cancel or answer can give the same message a new reply, so the URL changes with it. */
 const audioUrl = (c: VoiceCommand) =>
   c.response_audio_url
     ? `/api/kf/voice/commands/${c.id}/audio?v=${encodeURIComponent(c.updated_at)}`
@@ -80,17 +90,20 @@ const total = (c: VoiceCommand) =>
   )
 
 export function BoloScreen() {
-  const { t, code } = useI18n()
-  const { run, said, setSaid } = useShell()
+  const { t, code, locale } = useI18n()
+  const { run, said, setSaid, chatId, setChatId } = useShell()
   const { phone, compact } = useLayout()
-  const [historyPage, setHistoryPage] = React.useState(1)
-  const history = useVoiceHistory(historyPage)
-  const historyPages = pagesOf(history.data?.count, SIZE.table)
-  const historyRef = React.useRef<HTMLElement>(null)
-  const historyBox = useNotchBox(historyRef)
+  const [chatsPage, setChatsPage] = React.useState(1)
+  const chats = useChats(chatsPage)
+  const chatPages = pagesOf(chats.data?.count, SIZE.table)
+  const listRef = React.useRef<HTMLElement>(null)
+  const listBox = useNotchBox(listRef)
+  const openId = chatId ?? null
+  const messages = useChatMessages(openId)
   const [phase, setPhase] = React.useState<Phase>("idle")
-  const [command, setCommand] = React.useState<VoiceCommand | null>(null)
-  // Stages the server has reported finished for the command in flight (timings_ms keys → ms).
+  // The newest reply, shown at once while the chat refetches.
+  const [landed, setLanded] = React.useState<VoiceCommand | null>(null)
+  // Stages the server has reported finished for the message in flight (timings_ms keys → ms).
   const [ticks, setTicks] = React.useState<Record<string, number>>({})
   const [mode, setMode] = React.useState<Mode>("audio")
   const [error, setError] = React.useState("")
@@ -101,27 +114,81 @@ export function BoloScreen() {
   const stopTimer = React.useRef<number | undefined>(undefined)
   const player = React.useRef<HTMLAudioElement | null>(null)
   const job = React.useRef<Job | null>(null)
-  const live = useLiveMic()
-  // A command waiting on a question: what is said or typed next may answer it (the server decides).
-  const asking = React.useRef<number | undefined>(undefined)
-  const replyTo = React.useCallback(() => {
-    const id = asking.current
-    asking.current = undefined
-    return id
-  }, [])
-
-  // Show a finished command, then play its reply.
-  const land = React.useCallback((c: VoiceCommand) => {
-    asking.current = c.stage === "NEEDS_CLARIFICATION" ? c.id : undefined
-    setCommand(c)
-    setPhase("done")
-    const url = audioUrl(c)
-    if (url) {
-      player.current?.pause()
-      player.current = new Audio(url)
-      player.current.play().catch(() => undefined)
+  const scroller = React.useRef<HTMLDivElement>(null)
+  // Muted: replies don't play by themselves (each still has its own play button). Remembered in this browser.
+  const [muted, setMuted] = React.useState(() => {
+    try {
+      return localStorage.getItem(MUTE_KEY) === "1"
+    } catch {
+      return false
     }
-  }, [])
+  })
+  const mutedRef = React.useRef(muted)
+  React.useEffect(() => {
+    mutedRef.current = muted
+  }, [muted])
+  const toggleMute = () => {
+    const next = !muted
+    if (next) player.current?.pause()
+    setMuted(next)
+    try {
+      localStorage.setItem(MUTE_KEY, next ? "1" : "0")
+    } catch {}
+  }
+  const live = useLiveMic()
+  // Sends read the open chat here, so the header's hand-off never sends into a chat closed meanwhile.
+  const chatRef = React.useRef(openId)
+  React.useEffect(() => {
+    chatRef.current = openId
+  }, [openId])
+  const busy = phase === "working" || phase === "listening"
+
+  // First visit: open the newest chat, or none, so the first message starts one.
+  React.useEffect(() => {
+    if (chatId === undefined && chats.data)
+      setChatId(chats.data.results[0]?.id ?? null)
+  }, [chatId, chats.data, setChatId])
+
+  const thread = React.useMemo(() => {
+    const rows = new Map(
+      (messages.data?.pages ?? [])
+        .flatMap((p) => p.results)
+        .map((m) => [m.id, m])
+    )
+    const known = landed && rows.get(landed.id)
+    if (
+      landed &&
+      landed.chat === openId &&
+      (!known || known.updated_at < landed.updated_at)
+    )
+      rows.set(landed.id, landed)
+    return [...rows.values()].sort((a, b) => a.id - b.id)
+  }, [messages.data, landed, openId])
+  const lastId = thread.at(-1)?.id
+
+  const play = (c: VoiceCommand) => {
+    const url = audioUrl(c)
+    if (!url) return
+    player.current?.pause()
+    player.current = new Audio(url)
+    player.current.play().catch(() => undefined)
+  }
+
+  // Show a finished message in its chat, then play its reply.
+  const land = React.useCallback(
+    (c: VoiceCommand) => {
+      setLanded(c)
+      if (c.chat !== null) setChatId(c.chat)
+      setPhase("done")
+      const url = audioUrl(c)
+      if (url && !mutedRef.current) {
+        player.current?.pause()
+        player.current = new Audio(url)
+        player.current.play().catch(() => undefined)
+      }
+    },
+    [setChatId]
+  )
 
   const begin = React.useCallback((kind: Mode) => {
     const mine: Job = { abort: new AbortController() }
@@ -133,7 +200,7 @@ export function BoloScreen() {
     return mine
   }, [])
 
-  // The server reverses anything the command already wrote; only then stop reading its stream.
+  // The server reverses anything the message already wrote; only then stop reading its stream.
   const drop = React.useCallback(
     (mine: Job) =>
       run(() => api(`voice/commands/${mine.id}/cancel`, { method: "POST" }))
@@ -142,7 +209,7 @@ export function BoloScreen() {
     [run, t]
   )
 
-  // Through the shell: whatever the command wrote, every screen refetches and its figures roll.
+  // Through the shell: whatever the message wrote, every screen refetches and its figures roll.
   const send = React.useCallback(
     async (mine: Job, call: (progress: Progress) => Promise<VoiceCommand>) => {
       const progress: Progress = {
@@ -179,22 +246,23 @@ export function BoloScreen() {
   const sendText = React.useCallback(
     (text: string) => {
       setSentText(text)
+      const chat = chatRef.current
       return send(begin("text"), (progress) =>
         apiProgress<VoiceCommand>(
           "voice/text-commands",
-          { json: { text, language: code, reply_to: replyTo() } },
+          { json: { text, language: code, ...(chat ? { chat } : {}) } },
           progress
         )
       )
     },
-    [begin, send, code, replyTo]
+    [begin, send, code]
   )
 
-  // Text typed in the header's box arrives here.
+  // Text typed in the header's box arrives here, into the open chat.
   React.useEffect(() => {
     if (!said) return
     // After the effect, not inside it: sending sets this screen's state. Only the effect still standing sends,
-    // or a remount (Strict Mode mounts twice) would send the command twice.
+    // or a remount (Strict Mode mounts twice) would send the message twice.
     let current = true
     queueMicrotask(() => {
       if (!current) return
@@ -214,6 +282,12 @@ export function BoloScreen() {
     },
     []
   )
+
+  // Follow the conversation: the newest message, and the words of the one in flight as they arrive.
+  React.useEffect(() => {
+    const box = scroller.current
+    if (box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" })
+  }, [lastId, phase, live.phrases.length, openId])
 
   const listen = async () => {
     if (phase === "listening") return recorder.current?.stop()
@@ -243,8 +317,7 @@ export function BoloScreen() {
         `command.${blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm"}`
       )
       form.append("language", code)
-      const reply = replyTo()
-      if (reply) form.append("reply_to", String(reply))
+      if (chatRef.current) form.append("chat", String(chatRef.current))
       send(mine, (progress) =>
         apiProgress<VoiceCommand>("voice/commands", { form }, progress)
       )
@@ -257,39 +330,41 @@ export function BoloScreen() {
     stopTimer.current = window.setTimeout(finish, MAX_SECONDS * 1000)
   }
 
-  const answer = (
-    label: string,
-    body: { option_id?: string; confirm?: boolean }
-  ) => {
-    if (!command) return
-    setSentText(label)
-    return send(begin("text"), (progress) =>
-      apiProgress<VoiceCommand>(
-        `voice/commands/${command.id}/clarify`,
-        { json: body },
-        progress
-      )
-    )
-  }
-
-  const replay = () => {
-    const url = command && audioUrl(command)
-    if (!url) return
+  const openChat = (id: number | null) => {
+    if (busy) return
     player.current?.pause()
-    player.current = new Audio(url)
-    player.current.play().catch(() => undefined)
+    setChatId(id)
+    setLanded(null)
+    setPhase("idle")
+    setError("")
   }
 
-  const stage = command?.stage ?? ""
-  const timings = (command?.timings_ms ?? {}) as Record<string, number>
-  const clarification = command?.clarification as
-    | {
-        kind: string
-        options: { id: string; label: string }[]
-        expires_at: string
-      }
-    | null
-    | undefined
+  const openTitle = chats.data?.results.find((c) => c.id === openId)?.title
+  const inFlight =
+    phase === "working"
+      ? mode === "text"
+        ? sentText
+        : live.phrases.join(" ") || "…"
+      : phase === "listening"
+        ? live.phrases.join(" ")
+        : ""
+  const clock = (iso: string) =>
+    new Date(iso).toLocaleTimeString(locale, {
+      hour: "numeric",
+      minute: "2-digit",
+    })
+  // The chat list under Today, Yesterday and dated headings, newest first as it comes.
+  const chatDays = Object.entries(
+    Object.groupBy(chats.data?.results ?? [], (c) =>
+      isoDay(new Date(c.last_message_at))
+    )
+  ).map(([day, rows]) => [day, rows ?? []] as const)
+  const when = (iso: string) => {
+    const at = new Date(iso)
+    return isoDay(at) === isoDay()
+      ? at.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })
+      : dayLabel(isoDay(at), t, locale)
+  }
 
   return (
     <div
@@ -305,90 +380,65 @@ export function BoloScreen() {
         data-flip-id="main-card"
         data-shape=""
         className={cn(
-          "relative flex flex-col items-center gap-6 rounded-[32px] bg-deep",
+          "relative flex flex-col gap-4 rounded-[32px] bg-deep",
           phone
-            ? "p-5 pb-[84px]"
+            ? "h-[min(720px,82dvh)] p-5 pb-[84px]"
             : compact
-              ? "min-h-[620px] p-8 pb-[84px]"
-              : "p-8"
+              ? "h-[min(760px,86dvh)] p-8 pb-[84px]"
+              : "min-h-0 p-8"
         )}
       >
-        <div className="flex items-start justify-between gap-3 self-stretch">
-          <PanelTitle title={t("screen.bolo.title")} sub={t("bolo.sub")} />
-        </div>
-        <div className="-mx-2 flex min-h-0 w-[calc(100%+16px)] flex-1 flex-col overflow-y-auto px-2">
-          <div className="m-auto flex w-full flex-col items-center gap-6 py-1">
-            {/* One element that morphs: lime circle → rounded bar holding the waveform → the circle again inside the
-                turning gradient while the command is worked on. */}
-            <div
+        <PanelTitle
+          title={t("screen.bolo.title")}
+          sub={openTitle || t("bolo.sub")}
+          subClassName="line-clamp-1"
+        />
+        <div
+          ref={scroller}
+          className="-mx-2 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 py-1"
+        >
+          {messages.hasNextPage && (
+            <button
+              type="button"
+              onClick={() => messages.fetchNextPage()}
+              className="mx-auto h-9 shrink-0 cursor-pointer rounded-full bg-raised px-4 text-[13px] dark:bg-card"
+            >
+              {t("bolo.earlier")}
+            </button>
+          )}
+          {messages.isError && <LoadError onRetry={() => messages.refetch()} />}
+          {thread.length === 0 && !inFlight && phase !== "working" && (
+            <p
               className={cn(
-                "relative isolate mt-3 grid shrink-0 place-items-center transition-[width,height,border-radius] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-                phase === "listening"
-                  ? cn(
-                      "w-[440px] max-w-full",
-                      phone ? "h-14 rounded-[22px]" : "h-16 rounded-[24px]"
-                    )
-                  : phone
-                    ? "size-24 rounded-[48px]"
-                    : "size-32 rounded-[64px]",
-                phase === "working" ? "kf-ai-ring p-1" : "bg-lime text-black"
+                "m-auto max-w-[640px] text-center leading-[1.2] font-light text-pretty",
+                phone ? "text-2xl" : "text-[32px]"
               )}
             >
-              {phase === "working" ? (
-                <div
-                  role="img"
-                  aria-label={t("bolo.working")}
-                  className="grid size-full place-items-center rounded-[inherit] bg-deep"
-                >
-                  <MicIcon size={40} stroke={1.6} />
-                </div>
-              ) : phase === "listening" ? (
-                <div className="flex size-full animate-in items-center gap-4 pr-2 pl-5 duration-300 fade-in-0">
-                  <Elapsed />
-                  <Waveform
-                    levels={live.levels}
-                    className="h-8 min-w-0 flex-1 text-black"
-                  />
-                  <Tip label={t("bolo.stop")}>
-                    <button
-                      type="button"
-                      aria-label={t("bolo.stop")}
-                      onClick={() =>
-                        recorder.current?.state === "recording" &&
-                        recorder.current.stop()
-                      }
-                      className={cn(
-                        "grid shrink-0 cursor-pointer place-items-center rounded-full bg-black transition-transform duration-150 active:scale-[0.92]",
-                        phone ? "size-10" : "size-12"
-                      )}
-                    >
-                      <span className="size-3.5 rounded-[3px] bg-lime" />
-                    </button>
-                  </Tip>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  aria-label={t("bolo.press")}
-                  onClick={listen}
-                  className="grid size-full cursor-pointer place-items-center rounded-[inherit] transition-transform duration-150 active:scale-[0.96]"
-                >
-                  <MicIcon size={40} stroke={1.6} />
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <p aria-live="polite" className="text-sm text-muted-foreground">
-                {error ||
-                  (phase === "listening"
-                    ? t("bolo.listening")
-                    : phase === "working"
-                      ? t("bolo.working")
-                      : phase === "done"
-                        ? t("bolo.again")
-                        : t("bolo.press"))}
-              </p>
-              {phase === "working" && (
+              {openId && messages.isPending ? "" : <Greeting />}
+            </p>
+          )}
+          {thread.map((m) => (
+            <Message
+              key={m.id}
+              m={m}
+              open={m.id === lastId && !busy}
+              when={when(m.created_at)}
+              onAnswer={sendText}
+              onPlay={() => play(m)}
+            />
+          ))}
+          {inFlight && <UserBubble text={inFlight} />}
+          {phase === "working" && (
+            <div className="mr-auto flex w-full max-w-[560px] animate-in flex-col gap-3 duration-300 fade-in-0">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="kf-ai-ring grid size-9 place-items-center rounded-full p-[3px]">
+                  <span className="grid size-full place-items-center rounded-full bg-deep">
+                    <MicIcon size={14} stroke={1.8} />
+                  </span>
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {t("bolo.working")}
+                </span>
                 <button
                   type="button"
                   onClick={cancel}
@@ -397,146 +447,132 @@ export function BoloScreen() {
                   <XIcon size={14} />
                   {t("bolo.cancel")}
                 </button>
-              )}
-            </div>
-            <p
-              aria-live="polite"
-              className={cn(
-                "min-h-10 max-w-[640px] text-center leading-[1.2] font-light text-pretty transition-colors duration-300",
-                phone ? "text-2xl" : "text-[32px]",
-                phase === "working" && "text-muted-foreground"
-              )}
-            >
-              {phase === "done" && command?.transcript ? (
-                `“${command.transcript}”`
-              ) : phase === "working" && mode === "text" ? (
-                `“${sentText}”`
-              ) : phase !== "done" &&
-                mode === "audio" &&
-                live.phrases.length ? (
-                `“${live.phrases.join(" ")}”`
-              ) : phase === "idle" ? (
-                <Greeting />
-              ) : (
-                ""
-              )}
-            </p>
-            {(phase === "working" || phase === "done") && (
-              <ProcessQueue
-                stages={
-                  phase === "working"
-                    ? mode === "audio"
-                      ? STAGES
-                      : STAGES.slice(2)
-                    : STAGES.filter((s) => s.timings.some((k) => k in timings))
-                }
-                working={phase === "working"}
-                timings={phase === "working" ? ticks : timings}
-              />
-            )}
-            {phase === "done" && command && (
-              <div className="mx-auto flex w-full max-w-[640px] flex-col gap-4 self-stretch rounded-[28px] bg-paper p-6 text-black">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-[#434343]">
-                    <Branded text={t("bolo.replied")} paper />
-                  </span>
-                  <span className="flex items-center gap-1.5 rounded-full bg-black px-2.5 py-[5px] text-[11px] text-white">
-                    <Dot
-                      color={STAGE_DOT[stage] ?? STAGE_DOT.FAILED}
-                      size={8}
-                    />
-                    {t(`bolo.stage.${stage}`)}
-                  </span>
-                </div>
-                <p className="text-[22px] leading-[1.35]">
-                  {command.response_text}
-                </p>
-                {stage === "NEEDS_CLARIFICATION" && clarification && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {clarification.options.map((o) => (
-                      <button
-                        key={o.id}
-                        type="button"
-                        onClick={() =>
-                          answer(
-                            o.label,
-                            o.id === "yes" || o.id === "no"
-                              ? { confirm: o.id === "yes" }
-                              : { option_id: o.id }
-                          )
-                        }
-                        className="h-11 cursor-pointer rounded-full bg-black px-5 text-[15px] text-white transition-transform duration-150 active:scale-[0.97]"
-                      >
-                        {o.label}
-                      </button>
-                    ))}
-                    <Countdown until={clarification.expires_at} />
-                    {clarification.kind !== "choose" && (
-                      <span className="basis-full text-sm text-muted-foreground">
-                        {t(
-                          clarification.kind === "confirm_create"
-                            ? "bolo.changeHint"
-                            : "bolo.answerHint"
-                        )}
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
+              <ProcessQueue
+                stages={mode === "audio" ? STAGES : STAGES.slice(2)}
+                working
+                timings={ticks}
+              />
+            </div>
+          )}
+        </div>
+        {(error || phase === "listening") && (
+          <p
+            aria-live="polite"
+            className="text-center text-sm text-muted-foreground"
+          >
+            {error || t("bolo.listening")}
+          </p>
+        )}
+        <div
+          className={cn(
+            "flex w-full items-center gap-2",
+            // Clear the corner notch, which sits beside the composer when nothing is padded below it.
+            !phone && !compact && "pr-[60px]"
+          )}
+        >
+          {/* One element that morphs: lime circle → a bar holding the waveform → the circle inside the turning
+              gradient while the message is worked on. */}
+          <div
+            className={cn(
+              "relative isolate grid h-[54px] shrink-0 place-items-center rounded-[27px] transition-[width,flex-grow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+              phase === "listening" ? "w-full flex-1" : "w-[54px]",
+              phase === "working" ? "kf-ai-ring p-1" : "bg-lime text-black"
+            )}
+          >
+            {phase === "working" ? (
+              <div
+                role="img"
+                aria-label={t("bolo.working")}
+                className="grid size-full place-items-center rounded-[inherit] bg-deep"
+              >
+                <MicIcon size={20} stroke={1.7} />
+              </div>
+            ) : phase === "listening" ? (
+              <div className="flex size-full animate-in items-center gap-4 pr-1.5 pl-5 duration-300 fade-in-0">
+                <Elapsed />
+                <Waveform
+                  levels={live.levels}
+                  className="h-7 min-w-0 flex-1 text-black"
+                />
+                <Tip label={t("bolo.stop")}>
+                  <button
+                    type="button"
+                    aria-label={t("bolo.stop")}
+                    onClick={() =>
+                      recorder.current?.state === "recording" &&
+                      recorder.current.stop()
+                    }
+                    className="grid size-[42px] shrink-0 cursor-pointer place-items-center rounded-full bg-black transition-transform duration-150 active:scale-[0.92]"
+                  >
+                    <span className="size-3 rounded-[3px] bg-lime" />
+                  </button>
+                </Tip>
+              </div>
+            ) : (
+              <Tip label={t("bolo.press")}>
+                <button
+                  type="button"
+                  aria-label={t("bolo.press")}
+                  onClick={listen}
+                  className="grid size-full cursor-pointer place-items-center rounded-[inherit] transition-transform duration-150 active:scale-[0.94]"
+                >
+                  <MicIcon size={22} stroke={1.7} />
+                </button>
+              </Tip>
             )}
           </div>
-        </div>
-        <div className="kf-ai-ring kf-ai-soft relative isolate w-full max-w-[640px] rounded-full p-[1.5px]">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              const text = typed.trim()
-              if (!text || phase === "working" || phase === "listening") return
-              setTyped("")
-              sendText(text)
-            }}
-            className="flex w-full items-center gap-3 rounded-full bg-raised py-1.5 pr-1.5 pl-5 dark:bg-[color-mix(in_oklch,var(--card)_45%,var(--deep))]"
-          >
-            <KeyboardIcon
-              aria-hidden
-              size={18}
-              className="shrink-0 text-muted-foreground"
-            />
-            <input
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              aria-label={t("bolo.typeTitle")}
-              placeholder={t("bolo.typePlaceholder")}
-              maxLength={500}
-              className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-sm"
-            />
-            <Tip label={t("header.send")}>
-              <button
-                type="submit"
-                aria-label={t("header.send")}
-                disabled={
-                  !typed.trim() || phase === "working" || phase === "listening"
-                }
-                className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full bg-foreground text-background transition-opacity duration-150 disabled:cursor-default disabled:opacity-0"
+          {phase !== "listening" && (
+            <div className="kf-ai-ring kf-ai-soft relative isolate min-w-0 flex-1 rounded-full p-[1.5px]">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  const text = typed.trim()
+                  if (!text || busy) return
+                  setTyped("")
+                  sendText(text)
+                }}
+                className="flex w-full items-center gap-3 rounded-full bg-raised py-1.5 pr-1.5 pl-5 dark:bg-[color-mix(in_oklch,var(--card)_45%,var(--deep))]"
               >
-                <ArrowIcon size={16} />
-              </button>
-            </Tip>
-          </form>
+                <KeyboardIcon
+                  aria-hidden
+                  size={18}
+                  className="shrink-0 text-muted-foreground"
+                />
+                <input
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  aria-label={t("bolo.typeTitle")}
+                  placeholder={t("bolo.typePlaceholder")}
+                  maxLength={500}
+                  className="h-10 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-sm"
+                />
+                <Tip label={t("header.send")}>
+                  <button
+                    type="submit"
+                    aria-label={t("header.send")}
+                    disabled={!typed.trim() || busy}
+                    className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full bg-foreground text-background transition-opacity duration-150 disabled:cursor-default disabled:opacity-0"
+                  >
+                    <ArrowIcon size={16} />
+                  </button>
+                </Tip>
+              </form>
+            </div>
+          )}
         </div>
         <CornerButton
           corner="br"
           flip="main-br"
-          title={t("bolo.replay")}
-          onClick={replay}
-          disabled={!command || !audioUrl(command)}
+          title={t(muted ? "bolo.unmute" : "bolo.mute")}
+          onClick={toggleMute}
         >
-          <PlayIcon size={16} />
+          {muted ? <VolumeXIcon size={18} /> : <Volume2Icon size={18} />}
         </CornerButton>
       </div>
 
       <section
-        ref={historyRef}
+        ref={listRef}
         data-panel
         data-flip-id="side-card"
         data-shape=""
@@ -547,42 +583,84 @@ export function BoloScreen() {
       >
         <div
           className="min-h-[52px] px-2 pt-1"
-          style={clearNotch(historyBox, phone, 16, 130)}
+          style={clearNotch(listBox, phone, 16, 130)}
         >
-          <PanelTitle
-            title={t("bolo.historyTitle")}
-            sub={t("bolo.historySub")}
-          />
+          <PanelTitle title={t("bolo.chatsTitle")} sub={t("bolo.chatsSub")} />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-2">
-          {history.isPending && <Loading />}
-          {history.isError && <LoadError onRetry={() => history.refetch()} />}
-          {history.data?.results.map((h) => (
-            <button
-              key={h.id}
-              type="button"
-              onClick={() => land(h)}
-              className="flex w-full cursor-pointer flex-col gap-1.5 border-t border-line py-3 text-left transition-colors duration-150 hover:bg-raised/40"
-            >
-              <p className="text-[15px]">“{h.transcript || "…"}”</p>
-              <div className="flex justify-between gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <Dot
-                    color={STAGE_DOT[h.stage] ?? STAGE_DOT.FAILED}
-                    size={8}
-                  />
-                  {t(`bolo.stage.${h.stage}`)}
-                </span>
-                <span>
-                  {t(`src.${h.input_mode}`)} ·{" "}
-                  {total(h).toLocaleString("en-IN")} ms
-                </span>
-              </div>
-            </button>
+        <div className="px-2 pb-2">
+          <button
+            type="button"
+            onClick={() => openChat(null)}
+            disabled={busy || (openId === null && thread.length === 0)}
+            className="flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-lime text-[15px] text-black transition-[transform,opacity] duration-150 active:scale-[0.98] disabled:cursor-default disabled:opacity-50"
+          >
+            <PlusIcon size={16} />
+            {t("bolo.newChat")}
+          </button>
+        </div>
+        <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
+          {chats.isPending && <Loading />}
+          {chats.isError && <LoadError onRetry={() => chats.refetch()} />}
+          {chatDays.map(([day, rows]) => (
+            <div key={day} className="flex flex-col gap-1 pb-2">
+              <p className="px-3 pt-2 pb-1 text-xs text-muted-foreground">
+                {dayLabel(day, t, locale)}
+              </p>
+              {rows.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => openChat(c.id)}
+                  disabled={busy}
+                  aria-current={c.id === openId || undefined}
+                  className={cn(
+                    "flex w-full cursor-pointer items-start gap-3 rounded-[20px] px-3 py-2.5 text-left transition-colors duration-150 disabled:cursor-default",
+                    c.id === openId
+                      ? "bg-raised shadow-[inset_0_0_0_1.5px_rgb(185_255_102/45%)]"
+                      : "hover:bg-raised/50"
+                  )}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px]">
+                      {c.title || t("bolo.newChat")}
+                    </span>
+                    {c.last_reply && (
+                      <span className="mt-0.5 line-clamp-1 text-[13px] text-muted-foreground">
+                        {c.last_reply}
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
+                    <span className="text-[11px] text-muted-foreground tabular-nums">
+                      {clock(c.last_message_at)}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      {c.last_stage && (
+                        <span
+                          className="flex"
+                          title={t(`bolo.stage.${c.last_stage}`)}
+                        >
+                          <Dot
+                            color={STAGE_DOT[c.last_stage] ?? STAGE_DOT.FAILED}
+                            size={7}
+                          />
+                          <span className="sr-only">
+                            {t(`bolo.stage.${c.last_stage}`)}
+                          </span>
+                        </span>
+                      )}
+                      <span className="min-w-5 rounded-full bg-foreground/10 px-1.5 text-center text-[11px] leading-[18px] tabular-nums">
+                        {c.message_count}
+                      </span>
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
           ))}
-          {history.data && history.data.results.length === 0 && (
-            <p className="border-t border-line py-4 text-sm text-muted-foreground">
-              {t("bolo.historyNone")}
+          {chats.data && chats.data.results.length === 0 && (
+            <p className="px-3 py-4 text-sm text-muted-foreground">
+              {t("bolo.chatsNone")}
             </p>
           )}
         </div>
@@ -594,14 +672,123 @@ export function BoloScreen() {
           data-shape=""
           className="flex items-center"
         >
-          <Pager
-            page={historyPage}
-            pages={historyPages}
-            onPage={setHistoryPage}
-          />
+          <Pager page={chatsPage} pages={chatPages} onPage={setChatsPage} />
         </Notch>
       </section>
     </div>
+  )
+}
+
+/** The shopkeeper's words, on the right. */
+function UserBubble({ text, meta }: { text: string; meta?: string }) {
+  return (
+    <div className="ml-auto flex max-w-[80%] animate-in flex-col items-end gap-1 duration-300 fade-in-0">
+      <p className="rounded-[22px] rounded-br-[8px] bg-raised px-4 py-2.5 text-[16px] leading-snug text-pretty dark:bg-card">
+        {text}
+      </p>
+      {meta && (
+        <span className="px-1 text-[11px] text-muted-foreground">{meta}</span>
+      )}
+    </div>
+  )
+}
+
+/** One exchange: the shopkeeper's message, then Khata's reply with its stage, and (when it is the open question)
+ *  the answers as buttons. A tapped answer is sent as a message, like a typed one. */
+function Message({
+  m,
+  open,
+  when,
+  onAnswer,
+  onPlay,
+}: {
+  m: VoiceCommand
+  open: boolean
+  when: string
+  onAnswer: (label: string) => void
+  onPlay: () => void
+}) {
+  const { t } = useI18n()
+  const asked = m.clarification as {
+    kind: string
+    options: { id: string; label: string }[]
+    expires_at: string
+  } | null
+  const timings = (m.timings_ms ?? {}) as Record<string, number>
+  const stages = STAGES.filter((s) => s.timings.some((k) => k in timings))
+  return (
+    <>
+      <UserBubble
+        text={m.transcript || "…"}
+        meta={`${t(`src.${m.input_mode}`)} · ${when}`}
+      />
+      <div className="mr-auto flex w-full max-w-[560px] flex-col gap-3 rounded-[24px] rounded-bl-[8px] bg-paper p-5 text-black">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-[#434343]">
+            <Branded text={t("bolo.replied")} paper />
+          </span>
+          <span className="flex items-center gap-1.5 rounded-full bg-black px-2.5 py-[5px] text-[11px] text-white">
+            <Dot color={STAGE_DOT[m.stage] ?? STAGE_DOT.FAILED} size={8} />
+            {t(`bolo.stage.${m.stage}`)}
+          </span>
+        </div>
+        {m.response_text && (
+          <p className="text-[18px] leading-[1.35] text-pretty">
+            {m.response_text}
+          </p>
+        )}
+        {open && m.stage === "NEEDS_CLARIFICATION" && asked && (
+          <div className="flex flex-wrap items-center gap-2">
+            {asked.options.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => onAnswer(o.label)}
+                className="h-10 cursor-pointer rounded-full bg-black px-5 text-[14px] text-white transition-transform duration-150 active:scale-[0.97]"
+              >
+                {o.label}
+              </button>
+            ))}
+            <Countdown until={asked.expires_at} />
+            {asked.kind !== "choose" && (
+              <span className="basis-full text-sm text-[#434343]">
+                {t(
+                  asked.kind === "confirm_create"
+                    ? "bolo.changeHint"
+                    : "bolo.answerHint"
+                )}
+              </span>
+            )}
+          </div>
+        )}
+        <div className="flex items-center gap-3 text-xs text-[#434343]">
+          {m.response_audio_url && (
+            <button
+              type="button"
+              onClick={onPlay}
+              aria-label={t("bolo.replay")}
+              className="grid size-8 cursor-pointer place-items-center rounded-full bg-black/10 transition-transform duration-150 active:scale-[0.94]"
+            >
+              <PlayIcon size={12} />
+            </button>
+          )}
+          {stages.length > 0 && (
+            <details className="group min-w-0 flex-1">
+              <summary className="cursor-pointer list-none select-none">
+                {t("bolo.pipeline")} · {total(m).toLocaleString("en-IN")} ms
+              </summary>
+              <div className="mt-2 text-foreground">
+                <ProcessQueue
+                  stages={stages}
+                  working={false}
+                  timings={timings}
+                />
+              </div>
+            </details>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
 

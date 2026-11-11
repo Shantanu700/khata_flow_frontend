@@ -211,6 +211,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/parties/{id}/attendance/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Set one day: present, half day or absent (this month and last month). Changes are written as corrections. */
+        put: operations["put_v1_parties_attendance"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/parties/{id}/month/": {
         parameters: {
             query?: never;
@@ -293,6 +310,40 @@ export interface paths {
         };
         /** @description Dashboard: what is owed, the last 14 days of udhaar and vasooli, what is running low, what staff are due. */
         get: operations["get_v1_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/chats/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The shop's chats, most recently active first. */
+        get: operations["get_v1_voice_chats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/voice/chats/{id}/messages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One chat's messages, newest first (each is the shopkeeper's words and Khata's reply). */
+        get: operations["get_v1_voice_chats_messages"];
         put?: never;
         post?: never;
         delete?: never;
@@ -429,12 +480,41 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AttendanceRequest: {
+            /**
+             * Format: date
+             * @description This month or last month, up to today.
+             */
+            on: string;
+            mark: components["schemas"]["MarkEnum"];
+        };
         AudioCommandRequest: {
             /** Format: binary */
             audio: string;
             language?: components["schemas"]["LanguageEnum"];
-            /** @description The command asking for a missing detail (clarification kind "fill") that this answers. */
-            reply_to?: number;
+            /** @description The chat this message belongs to; left out, a new chat is started. A message may answer the question the chat's previous message asked (a missing detail, yes/no, a change, or which one). */
+            chat?: number;
+        };
+        /**
+         * @description ModelSerializer with per-call `fields=[...]` / `exclude=[...]` subsetting (ModelBase.BASE_MODEL_FIELDS
+         *     are always kept) and `dynamic_keys`: related attributes flattened into read-only top-level fields,
+         *     either "party.name" (becomes party_name) or {"name", "source", "type"}.
+         */
+        Chat: {
+            readonly id: number;
+            readonly status: components["schemas"]["RecordStatusEnum"];
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            readonly title: string;
+            /** Format: date-time */
+            readonly last_message_at: string;
+            readonly message_count: number;
+            /** @description The newest message's stage. */
+            readonly last_stage: string | null;
+            /** @description Khata's reply to the newest message. */
+            readonly last_reply: string | null;
         };
         ClarifyRequest: {
             option_id?: string;
@@ -600,12 +680,27 @@ export interface components {
             /** Format: double */
             threshold: number;
         };
+        /**
+         * @description * `present` - present
+         *     * `half` - half
+         *     * `absent` - absent
+         * @enum {string}
+         */
+        MarkEnum: "present" | "half" | "absent";
         Me: {
             readonly username: string;
             shop: components["schemas"]["Shop"];
         };
         MeRequest: {
             shop: components["schemas"]["ShopRequest"];
+        };
+        PaginatedChat: {
+            count: number;
+            /** Format: uri */
+            next: string | null;
+            /** Format: uri */
+            previous: string | null;
+            results: components["schemas"]["Chat"][];
         };
         PaginatedEntryList: {
             /** @example 123 */
@@ -679,7 +774,10 @@ export interface components {
             readonly staff_due: components["schemas"]["StaffDueFields"] | null;
             /** @description The id of today's attendance entry (undo it to un-mark), or null. */
             readonly present_today: number | null;
+            /** @description Days with attendance (full or half) in the last 14 days. */
             readonly attendance_14d: string[] | null;
+            /** @description Which of those were half days. */
+            readonly half_days_14d: string[] | null;
             /** Format: date */
             readonly last_entry_on: string | null;
             /** Format: date */
@@ -798,6 +896,10 @@ export interface components {
         StaffDue: {
             id: number;
             name: string;
+            /**
+             * Format: double
+             * @description Half days count 0.5.
+             */
             days_present: number;
             days_in_month: number;
             /** Format: double */
@@ -810,6 +912,10 @@ export interface components {
             due: number;
         };
         StaffDueFields: {
+            /**
+             * Format: double
+             * @description Half days count 0.5.
+             */
             days_present: number;
             days_in_month: number;
             /** Format: double */
@@ -823,6 +929,10 @@ export interface components {
         };
         StaffMonth: {
             month: string;
+            /**
+             * Format: double
+             * @description Half days count 0.5.
+             */
             days_present: number;
             days_in_month: number;
             /** Format: double */
@@ -836,6 +946,8 @@ export interface components {
             /** Format: double */
             monthly_salary: number | null;
             present_days: string[];
+            /** @description Which present days were half days. */
+            half_days: string[];
         };
         StreamTicket: {
             ticket: string;
@@ -866,8 +978,8 @@ export interface components {
         TextCommandRequest: {
             text: string;
             language?: components["schemas"]["LanguageEnum"];
-            /** @description The command asking for a missing detail (clarification kind "fill") that this answers. */
-            reply_to?: number;
+            /** @description The chat this message belongs to; left out, a new chat is started. A message may answer the question the chat's previous message asked (a missing detail, yes/no, a change, or which one). */
+            chat?: number;
         };
         /**
          * @description * `PACKET` - Packet
@@ -889,6 +1001,7 @@ export interface components {
             readonly created_at: string;
             /** Format: date-time */
             readonly updated_at: string;
+            readonly chat: number | null;
             readonly stage: components["schemas"]["CommandStatusEnum"];
             readonly input_mode: components["schemas"]["InputModeEnum"];
             readonly language: string;
@@ -2007,6 +2120,69 @@ export interface operations {
             };
         };
     };
+    put_v1_parties_attendance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttendanceRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AttendanceRequest"];
+                "multipart/form-data": components["schemas"]["AttendanceRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Party"];
+                };
+            };
+            /** @description Request body or query parameters failed validation. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description The account has no shop yet. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description A business rule refused the request; the message can be shown to the user. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+        };
+    };
     get_v1_parties_month: {
         parameters: {
             query?: {
@@ -2572,6 +2748,120 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Summary"];
+                };
+            };
+            /** @description Request body or query parameters failed validation. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description The account has no shop yet. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description A business rule refused the request; the message can be shown to the user. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+        };
+    };
+    get_v1_voice_chats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Indicates that operation was successful. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedChat"];
+                };
+            };
+            /** @description Request body or query parameters failed validation. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description Missing or invalid token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description The account has no shop yet. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+            /** @description A business rule refused the request; the message can be shown to the user. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponseType"];
+                };
+            };
+        };
+    };
+    get_v1_voice_chats_messages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Indicates that operation was successful. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedVoiceCommand"];
                 };
             };
             /** @description Request body or query parameters failed validation. */
