@@ -867,7 +867,12 @@ function StaffCard({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1 tall:gap-2.5">
+        <div
+          className={cn(
+            "flex flex-col",
+            phone ? "gap-3.5" : "gap-1 tall:gap-2.5"
+          )}
+        >
           <div
             className={cn(
               "flex items-center gap-x-4 gap-y-2",
