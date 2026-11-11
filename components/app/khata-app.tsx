@@ -333,54 +333,56 @@ function App({ me }: { me: Me }) {
                   </p>
                 )}
               </div>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  const box = e.currentTarget.elements.namedItem(
-                    "say"
-                  ) as HTMLInputElement
-                  const text = box.value.trim()
-                  if (!text) return
-                  setSaid(text)
-                  box.value = ""
-                  go("bolo")
-                }}
-                className={cn(
-                  "flex items-center gap-[10px] rounded-full bg-white py-1.5 pr-1.5 pl-5 text-black",
-                  narrow ? "order-last basis-full" : "min-w-[320px] flex-1"
-                )}
-              >
-                {!phone && (
-                  <span className="max-w-[220px] truncate text-sm font-medium whitespace-nowrap">
-                    {shop}
-                  </span>
-                )}
-                {!compact && (
-                  <span className="rounded-full bg-[#e5e5e5] px-3.5 py-2 text-[13px] whitespace-nowrap">
-                    {today.toLocaleDateString(locale, {
-                      weekday: "short",
-                      day: "numeric",
-                      month: "short",
-                    })}
-                  </span>
-                )}
-                <input
-                  name="say"
-                  aria-label={t("header.sayLabel")}
-                  placeholder={t("header.sayPlaceholder")}
-                  maxLength={500}
-                  className="h-10 min-w-0 flex-1 bg-transparent text-base text-black outline-none placeholder:text-black/50 sm:text-sm"
-                />
-                <Tip label={t("header.send")}>
-                  <button
-                    type="submit"
-                    aria-label={t("header.send")}
-                    className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black text-white"
-                  >
-                    <ArrowIcon size={16} />
-                  </button>
-                </Tip>
-              </form>
+              {!(phone && screen === "bolo") && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    const box = e.currentTarget.elements.namedItem(
+                      "say"
+                    ) as HTMLInputElement
+                    const text = box.value.trim()
+                    if (!text) return
+                    setSaid(text)
+                    box.value = ""
+                    go("bolo")
+                  }}
+                  className={cn(
+                    "flex items-center gap-[10px] rounded-full bg-white py-1.5 pr-1.5 pl-5 text-black",
+                    narrow ? "order-last basis-full" : "min-w-[320px] flex-1"
+                  )}
+                >
+                  {!phone && (
+                    <span className="max-w-[220px] truncate text-sm font-medium whitespace-nowrap">
+                      {shop}
+                    </span>
+                  )}
+                  {!compact && (
+                    <span className="rounded-full bg-[#e5e5e5] px-3.5 py-2 text-[13px] whitespace-nowrap">
+                      {today.toLocaleDateString(locale, {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </span>
+                  )}
+                  <input
+                    name="say"
+                    aria-label={t("header.sayLabel")}
+                    placeholder={t("header.sayPlaceholder")}
+                    maxLength={500}
+                    className="h-10 min-w-0 flex-1 bg-transparent text-base text-black outline-none placeholder:text-black/50 sm:text-sm"
+                  />
+                  <Tip label={t("header.send")}>
+                    <button
+                      type="submit"
+                      aria-label={t("header.send")}
+                      className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black text-white"
+                    >
+                      <ArrowIcon size={16} />
+                    </button>
+                  </Tip>
+                </form>
+              )}
               <LanguagePicker
                 value={code}
                 onChange={setLanguage}
