@@ -147,7 +147,7 @@ export function EntriesScreen() {
             className={cn(
               "relative flex items-center gap-2",
               phone
-                ? "-mx-6 snap-x [scrollbar-width:none] overflow-x-auto px-6 [&::-webkit-scrollbar]:hidden"
+                ? "-mx-6 snap-x scroll-px-6 [scrollbar-width:none] overflow-x-auto px-6 [&::-webkit-scrollbar]:hidden"
                 : "flex-wrap"
             )}
             role="group"
