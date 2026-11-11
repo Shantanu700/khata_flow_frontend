@@ -382,17 +382,19 @@ export function BoloScreen() {
         className={cn(
           "relative flex flex-col gap-4 rounded-[32px] bg-deep",
           phone
-            ? "h-[min(720px,82dvh)] p-5 pb-[84px]"
+            ? "h-[min(720px,82dvh)] p-5"
             : compact
-              ? "h-[min(760px,86dvh)] p-8 pb-[84px]"
+              ? "h-[min(760px,86dvh)] p-8"
               : "min-h-0 p-8"
         )}
       >
-        <PanelTitle
-          title={t("screen.bolo.title")}
-          sub={openTitle || t("bolo.sub")}
-          subClassName="line-clamp-1"
-        />
+        <div className="pr-12">
+          <PanelTitle
+            title={t("screen.bolo.title")}
+            sub={openTitle || t("bolo.sub")}
+            subClassName="line-clamp-1"
+          />
+        </div>
         <div
           ref={scroller}
           className="-mx-2 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2 py-1"
@@ -464,13 +466,7 @@ export function BoloScreen() {
             {error || t("bolo.listening")}
           </p>
         )}
-        <div
-          className={cn(
-            "flex w-full items-center gap-2",
-            // Clear the corner notch, which sits beside the composer when nothing is padded below it.
-            !phone && !compact && "pr-[60px]"
-          )}
-        >
+        <div className="flex w-full items-center gap-2">
           {/* One element that morphs: lime circle → a bar holding the waveform → the circle inside the turning
               gradient while the message is worked on. */}
           <div
@@ -562,8 +558,8 @@ export function BoloScreen() {
           )}
         </div>
         <CornerButton
-          corner="br"
-          flip="main-br"
+          corner="tr"
+          flip="main-tr"
           title={t(muted ? "bolo.unmute" : "bolo.mute")}
           onClick={toggleMute}
         >
