@@ -23,7 +23,11 @@ cd backend && ./scripts/up.sh
 
 That brings up the API with two demo shops and then this app on http://localhost:3100. Sign in as
 `gupta_store` (Gupta General Store) or `patel_store` (Patel Provision Store) with the `DEMO_PASSWORD` from
-`backend/.env`, which the script prints when it finishes. See the backend README for details.
+`backend/.env`, which the script prints when it finishes.
+
+To run each part yourself instead (the API in Docker or straight on your machine, then this app), follow
+[Run it yourself, without the script](https://github.com/Shantanu700/khata_flow_backend#run-it-yourself-without-the-script)
+in the backend README.
 
 ## Running this app on its own
 
