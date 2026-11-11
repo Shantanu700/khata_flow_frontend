@@ -64,6 +64,14 @@ export function clearNotch(
     : { paddingRight: Math.max(0, box.w - pad + 12) }
 }
 
+/** Phones: the panel's controls in a row above it. The search bar takes the room left over; while it has focus
+ *  the other controls fold away and it grows across the row. */
+export const PHONE_ROW = cn(
+  "flex items-center gap-[10px]",
+  "*:not-first:max-w-60 *:not-first:shrink-0 *:not-first:overflow-hidden *:not-first:transition-[max-width,opacity,margin] *:not-first:duration-300 *:not-first:ease-[cubic-bezier(0.22,1,0.36,1)]",
+  "has-[input[data-row-search]:focus]:*:not-first:-ml-2.5 has-[input[data-row-search]:focus]:*:not-first:max-w-0 has-[input[data-row-search]:focus]:*:not-first:opacity-0"
+)
+
 /** The Lead Flow table card: title on the left, controls in a notch cut into the top-right corner.
  *  The notch stays at every width; below `compact` it holds `compactControls` (round buttons) instead. */
 export function LedgerCard({
@@ -137,15 +145,7 @@ export function LedgerCard({
   // Phones: no notch; the controls sit in a row above the card.
   return (
     <div className="flex flex-col gap-[10px]">
-      <div
-        data-flip-id={flip && `${flip}-tr`}
-        className={cn(
-          "flex items-center gap-[10px]",
-          // While the search has focus the other controls fold away and it grows across the row.
-          "*:not-first:max-w-60 *:not-first:shrink-0 *:not-first:overflow-hidden *:not-first:transition-[max-width,opacity,margin] *:not-first:duration-300 *:not-first:ease-[cubic-bezier(0.22,1,0.36,1)]",
-          "has-[input[data-row-search]:focus]:*:not-first:-ml-2.5 has-[input[data-row-search]:focus]:*:not-first:max-w-0 has-[input[data-row-search]:focus]:*:not-first:opacity-0"
-        )}
-      >
+      <div data-flip-id={flip && `${flip}-tr`} className={PHONE_ROW}>
         {compactControls ?? controls}
       </div>
       {card}

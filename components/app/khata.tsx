@@ -36,6 +36,8 @@ import {
   RoundButton,
   ViewToggle,
   clearNotch,
+  NotchSearch,
+  PHONE_ROW,
   pagesOf,
   useNotchBox,
   type View,
@@ -122,9 +124,26 @@ export function KhataScreen() {
     >
       {!single && (
         <div className={phone ? "flex flex-col gap-[10px]" : "contents"}>
-          {/* Phones: no notch; the pager and + sit in a row above the list. */}
+          {/* Phones: no notch; search, filters, pager and + sit in a row above the list. */}
           {phone && (
-            <div className="flex items-center justify-end gap-[10px]">
+            <div className={PHONE_ROW}>
+              <NotchSearch
+                value={query}
+                onChange={(v) => (setQuery(v), setPage(1))}
+                placeholder={t("khata.search")}
+                label={t("khata.searchLabel")}
+              />
+              <FilterButton active={show !== "sab"}>
+                <Segmented
+                  label={t("stock.showLabel")}
+                  options={showOptions}
+                  value={show}
+                  onChange={(v) => (setShow(v), setPage(1))}
+                  className="h-[52px] bg-card p-1.5"
+                  itemClassName="flex-1"
+                />
+                <ViewToggle value={view} onChange={setView} className="w-fit" />
+              </FilterButton>
               <Pager page={page} pages={pages} onPage={setPage} />
               <AddButton
                 label={t("khata.new")}
@@ -175,31 +194,35 @@ export function KhataScreen() {
                 />
               </Notch>
             )}
-            <label className="mt-2 flex h-12 items-center gap-[10px] rounded-full bg-raised px-[18px] text-muted-foreground">
-              <SearchIcon size={16} />
-              <input
-                value={query}
-                onChange={(e) => (setQuery(e.target.value), setPage(1))}
-                placeholder={t("khata.search")}
-                aria-label={t("khata.searchLabel")}
-                className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground sm:text-sm"
-              />
-            </label>
-            <div className="mb-2 flex gap-[10px]">
-              <Segmented
-                label={t("stock.showLabel")}
-                options={showOptions}
-                value={show}
-                onChange={(v) => (setShow(v), setPage(1))}
-                className="h-12 min-w-0 flex-1 bg-raised p-1.5"
-                itemClassName={cn("flex-1", phone && "px-2.5")}
-              />
-              <ViewToggle
-                value={view}
-                onChange={setView}
-                className="h-12 shrink-0 bg-raised"
-              />
-            </div>
+            {!phone && (
+              <>
+                <label className="mt-2 flex h-12 items-center gap-[10px] rounded-full bg-raised px-[18px] text-muted-foreground">
+                  <SearchIcon size={16} />
+                  <input
+                    value={query}
+                    onChange={(e) => (setQuery(e.target.value), setPage(1))}
+                    placeholder={t("khata.search")}
+                    aria-label={t("khata.searchLabel")}
+                    className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground sm:text-sm"
+                  />
+                </label>
+                <div className="mb-2 flex gap-[10px]">
+                  <Segmented
+                    label={t("stock.showLabel")}
+                    options={showOptions}
+                    value={show}
+                    onChange={(v) => (setShow(v), setPage(1))}
+                    className="h-12 min-w-0 flex-1 bg-raised p-1.5"
+                    itemClassName={cn("flex-1", phone && "px-2.5")}
+                  />
+                  <ViewToggle
+                    value={view}
+                    onChange={setView}
+                    className="h-12 shrink-0 bg-raised"
+                  />
+                </div>
+              </>
+            )}
             <div className="-mx-1 flex min-h-0 flex-1 flex-col overflow-y-auto px-1">
               {view === "cards" ? (
                 <div className="grid grid-cols-2 gap-[10px]">
