@@ -123,173 +123,195 @@ export function KhataScreen() {
       )}
     >
       {!single && (
-        <section
-          ref={listRef}
-          data-panel
-          data-flip-id="side-card"
-          data-shape=""
-          className="relative flex min-h-0 flex-col gap-1.5 rounded-[32px] bg-card p-4"
-        >
-          <div className="min-h-[52px] px-2 pt-1" style={listHeading.wrap}>
-            <h2
-              data-roll="side-title"
-              className="text-2xl font-normal"
-              style={listHeading.title}
-            >
-              {t("khata.listTitle")}
-            </h2>
-            {!phone && (
-              <p data-roll="side-sub" className="text-sm text-muted-foreground">
-                {t("khata.listSub", {
-                  count: summary.data?.customer_count ?? 0,
-                  owing: summary.data?.owing_count ?? 0,
-                })}
-              </p>
-            )}
-          </div>
-          <Notch
-            corner="tr"
-            r={notchRadius(phone ? 44 : 52)}
-            gap={10}
-            data-flip-id="side-tr"
+        <div className={phone ? "flex flex-col gap-[10px]" : "contents"}>
+          {/* Phones: no notch; the pager and + sit in a row above the list. */}
+          {phone && (
+            <div className="flex items-center justify-end gap-[10px]">
+              <Pager page={page} pages={pages} onPage={setPage} />
+              <AddButton
+                label={t("khata.new")}
+                onClick={() => setEditing("new")}
+              />
+            </div>
+          )}
+          <section
+            ref={listRef}
+            data-panel
+            data-flip-id="side-card"
             data-shape=""
-            className="flex items-center gap-[10px]"
+            className="relative flex min-h-0 flex-col gap-1.5 rounded-[32px] bg-card p-4"
           >
-            <Pager page={page} pages={pages} onPage={setPage} />
-            <AddButton
-              label={t("khata.new")}
-              onClick={() => setEditing("new")}
-            />
-          </Notch>
-          <label className="mt-2 flex h-12 items-center gap-[10px] rounded-full bg-raised px-[18px] text-muted-foreground">
-            <SearchIcon size={16} />
-            <input
-              value={query}
-              onChange={(e) => (setQuery(e.target.value), setPage(1))}
-              placeholder={t("khata.search")}
-              aria-label={t("khata.searchLabel")}
-              className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground sm:text-sm"
-            />
-          </label>
-          <div className="mb-2 flex gap-[10px]">
-            <Segmented
-              label={t("stock.showLabel")}
-              options={showOptions}
-              value={show}
-              onChange={(v) => (setShow(v), setPage(1))}
-              className="h-12 min-w-0 flex-1 bg-raised p-1.5"
-              itemClassName={cn("flex-1", phone && "px-2.5")}
-            />
-            <ViewToggle
-              value={view}
-              onChange={setView}
-              className="h-12 shrink-0 bg-raised"
-            />
-          </div>
-          <div className="-mx-1 flex min-h-0 flex-1 flex-col overflow-y-auto px-1">
-            {view === "cards" ? (
-              <div className="grid grid-cols-2 gap-[10px]">
-                {shown.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => pick(c.id)}
-                    aria-pressed={!narrow && c.id === selectedId}
-                    className={cn(
-                      "flex min-w-0 cursor-pointer flex-col gap-4 rounded-[24px] p-4 text-left transition-colors duration-150",
-                      !narrow && c.id === selectedId
-                        ? "bg-raised ring-2 ring-lime ring-inset"
-                        : "bg-background/60 hover:bg-raised"
-                    )}
-                  >
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card">
+            <div
+              className={cn("px-2 pt-1", !phone && "min-h-[52px]")}
+              style={listHeading.wrap}
+            >
+              <h2
+                data-roll="side-title"
+                className="text-2xl font-normal"
+                style={listHeading.title}
+              >
+                {t("khata.listTitle")}
+              </h2>
+              {!phone && (
+                <p
+                  data-roll="side-sub"
+                  className="text-sm text-muted-foreground"
+                >
+                  {t("khata.listSub", {
+                    count: summary.data?.customer_count ?? 0,
+                    owing: summary.data?.owing_count ?? 0,
+                  })}
+                </p>
+              )}
+            </div>
+            {!phone && (
+              <Notch
+                corner="tr"
+                r={notchRadius(52)}
+                gap={10}
+                data-flip-id="side-tr"
+                data-shape=""
+                className="flex items-center gap-[10px]"
+              >
+                <Pager page={page} pages={pages} onPage={setPage} />
+                <AddButton
+                  label={t("khata.new")}
+                  onClick={() => setEditing("new")}
+                />
+              </Notch>
+            )}
+            <label className="mt-2 flex h-12 items-center gap-[10px] rounded-full bg-raised px-[18px] text-muted-foreground">
+              <SearchIcon size={16} />
+              <input
+                value={query}
+                onChange={(e) => (setQuery(e.target.value), setPage(1))}
+                placeholder={t("khata.search")}
+                aria-label={t("khata.searchLabel")}
+                className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground sm:text-sm"
+              />
+            </label>
+            <div className="mb-2 flex gap-[10px]">
+              <Segmented
+                label={t("stock.showLabel")}
+                options={showOptions}
+                value={show}
+                onChange={(v) => (setShow(v), setPage(1))}
+                className="h-12 min-w-0 flex-1 bg-raised p-1.5"
+                itemClassName={cn("flex-1", phone && "px-2.5")}
+              />
+              <ViewToggle
+                value={view}
+                onChange={setView}
+                className="h-12 shrink-0 bg-raised"
+              />
+            </div>
+            <div className="-mx-1 flex min-h-0 flex-1 flex-col overflow-y-auto px-1">
+              {view === "cards" ? (
+                <div className="grid grid-cols-2 gap-[10px]">
+                  {shown.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => pick(c.id)}
+                      aria-pressed={!narrow && c.id === selectedId}
+                      className={cn(
+                        "flex min-w-0 cursor-pointer flex-col gap-4 rounded-[24px] p-4 text-left transition-colors duration-150",
+                        !narrow && c.id === selectedId
+                          ? "bg-raised ring-2 ring-lime ring-inset"
+                          : "bg-background/60 hover:bg-raised"
+                      )}
+                    >
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card">
+                          <Face
+                            name={c.name}
+                            src={photoSrc(`parties/${c.id}`, c.photo_key)}
+                          />
+                        </span>
+                        {(c.balance ?? 0) > 0 && (
+                          <Dot color="var(--chart-udhaar)" size={8} />
+                        )}
+                      </span>
+                      <span
+                        className={cn(
+                          "truncate leading-none font-light tracking-[-0.02em]",
+                          phone ? "text-2xl" : "text-[28px]"
+                        )}
+                      >
+                        <span data-roll={`bal-${c.id}`} className="block">
+                          {balanceText(c, t)}
+                        </span>
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm">{c.name}</span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {lastLabel(c.last_entry_on, t)}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-between px-3 text-xs text-muted-foreground">
+                    <span>{t("khata.listTitle")}</span>
+                    <span>{t("col.balance")}</span>
+                  </div>
+                  {shown.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => pick(c.id)}
+                      aria-pressed={!narrow && c.id === selectedId}
+                      className={cn(
+                        "flex cursor-pointer items-center gap-3 rounded-3xl p-3 text-left transition-colors duration-150",
+                        !narrow && c.id === selectedId
+                          ? "bg-raised"
+                          : "bg-transparent hover:bg-raised/50"
+                      )}
+                    >
+                      <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-background">
                         <Face
                           name={c.name}
                           src={photoSrc(`parties/${c.id}`, c.photo_key)}
                         />
                       </span>
-                      {(c.balance ?? 0) > 0 && (
-                        <Dot color="var(--chart-udhaar)" size={8} />
-                      )}
-                    </span>
-                    <span
-                      className={cn(
-                        "truncate leading-none font-light tracking-[-0.02em]",
-                        phone ? "text-2xl" : "text-[28px]"
-                      )}
-                    >
-                      <span data-roll={`bal-${c.id}`} className="block">
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-base">
+                          {c.name}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {lastLabel(c.last_entry_on, t)}
+                        </span>
+                      </span>
+                      <span
+                        data-roll={`bal-${c.id}`}
+                        className="text-lg font-light"
+                      >
                         {balanceText(c, t)}
                       </span>
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm">{c.name}</span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {lastLabel(c.last_entry_on, t)}
-                      </span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-between px-3 text-xs text-muted-foreground">
-                  <span>{t("khata.listTitle")}</span>
-                  <span>{t("col.balance")}</span>
-                </div>
-                {shown.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => pick(c.id)}
-                    aria-pressed={!narrow && c.id === selectedId}
-                    className={cn(
-                      "flex cursor-pointer items-center gap-3 rounded-3xl p-3 text-left transition-colors duration-150",
-                      !narrow && c.id === selectedId
-                        ? "bg-raised"
-                        : "bg-transparent hover:bg-raised/50"
-                    )}
-                  >
-                    <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-background">
-                      <Face
-                        name={c.name}
-                        src={photoSrc(`parties/${c.id}`, c.photo_key)}
-                      />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-base">{c.name}</span>
-                      <span className="block text-xs text-muted-foreground">
-                        {lastLabel(c.last_entry_on, t)}
-                      </span>
-                    </span>
-                    <span
-                      data-roll={`bal-${c.id}`}
-                      className="text-lg font-light"
-                    >
-                      {balanceText(c, t)}
-                    </span>
-                  </button>
-                ))}
-              </>
-            )}
-            {list.isPending && <Loading />}
-            {list.isError && <LoadError onRetry={() => list.refetch()} />}
-            {list.data && shown.length === 0 && (
-              <p className="px-3 py-6 text-sm text-muted-foreground">
-                {q || show !== "sab"
-                  ? t("khata.noneFound")
-                  : t("khata.noneYet")}
-              </p>
-            )}
-          </div>
-          <div className="mt-auto flex justify-between border-t border-line px-3 pt-3.5 pb-1 text-sm text-muted-foreground">
-            <span>{t("khata.total")}</span>
-            <span data-roll="khata-total" className="text-foreground">
-              {inr(summary.data?.total_outstanding)}
-            </span>
-          </div>
-        </section>
+                    </button>
+                  ))}
+                </>
+              )}
+              {list.isPending && <Loading />}
+              {list.isError && <LoadError onRetry={() => list.refetch()} />}
+              {list.data && shown.length === 0 && (
+                <p className="px-3 py-6 text-sm text-muted-foreground">
+                  {q || show !== "sab"
+                    ? t("khata.noneFound")
+                    : t("khata.noneYet")}
+                </p>
+              )}
+            </div>
+            <div className="mt-auto flex justify-between border-t border-line px-3 pt-3.5 pb-1 text-sm text-muted-foreground">
+              <span>{t("khata.total")}</span>
+              <span data-roll="khata-total" className="text-foreground">
+                {inr(summary.data?.total_outstanding)}
+              </span>
+            </div>
+          </section>
+        </div>
       )}
 
       {sel && (!narrow || single) ? (

@@ -106,7 +106,7 @@ export function LedgerCard({
   const ref = React.useRef<HTMLElement>(null)
   const box = useNotchBox(ref)
   const heading = notchHeading(box, phone, 24, 190)
-  return (
+  const card = (
     <section
       ref={ref}
       data-panel
@@ -117,7 +117,10 @@ export function LedgerCard({
         className
       )}
     >
-      <div className="min-h-[58px] min-w-0" style={heading.wrap}>
+      <div
+        className={cn("min-w-0", !phone && "min-h-[58px]")}
+        style={heading.wrap}
+      >
         <h2
           data-roll={flip && "card-title"}
           className="text-2xl font-normal"
@@ -135,19 +138,34 @@ export function LedgerCard({
           </p>
         )}
       </div>
-      <Notch
-        corner="tr"
-        r={notchRadius(phone ? 44 : 52)}
-        gap={10}
-        data-flip-id={flip && `${flip}-tr`}
-        data-shape={flip ? "" : undefined}
-        className="flex items-center gap-[10px]"
-      >
-        {compact && compactControls ? compactControls : controls}
-      </Notch>
+      {!phone && (
+        <Notch
+          corner="tr"
+          r={notchRadius(52)}
+          gap={10}
+          data-flip-id={flip && `${flip}-tr`}
+          data-shape={flip ? "" : undefined}
+          className="flex items-center gap-[10px]"
+        >
+          {compact && compactControls ? compactControls : controls}
+        </Notch>
+      )}
       {toolbar}
       {children}
     </section>
+  )
+  if (!phone) return card
+  // Phones: no notch; the controls sit in a row above the card.
+  return (
+    <div className="flex flex-col gap-[10px]">
+      <div
+        data-flip-id={flip && `${flip}-tr`}
+        className="flex items-center justify-end gap-[10px]"
+      >
+        {compactControls ?? controls}
+      </div>
+      {card}
+    </div>
   )
 }
 
