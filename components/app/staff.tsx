@@ -49,7 +49,6 @@ import {
 import {
   CornerButton,
   Dot,
-  Swap,
   Tip,
   toasted,
   usePending,
@@ -839,7 +838,7 @@ function StaffCard({
     <div className="relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]">
       <div
         className={cn(
-          "@container flex h-full flex-col justify-between gap-1.5 overflow-y-auto rounded-[32px] p-4 tall:gap-3 tall:p-6",
+          "@container flex h-full flex-col justify-between gap-[5px] overflow-y-auto rounded-[32px] p-4 tall:gap-3 tall:p-6",
           phone && "gap-3"
         )}
       >
@@ -875,14 +874,29 @@ function StaffCard({
               phone ? "justify-between" : "flex-wrap"
             )}
           >
-            <p className="flex items-baseline gap-2">
+            <p
+              className={cn(
+                "flex",
+                phone ? "flex-col" : "items-baseline gap-2"
+              )}
+            >
               <span
                 data-roll={`staff-${s.id}-left`}
-                className="text-[clamp(26px,2.4vw,32px)] leading-none font-light whitespace-nowrap tall:text-[clamp(32px,3vw,46px)]"
+                className={cn(
+                  "leading-none font-light whitespace-nowrap",
+                  phone
+                    ? "text-[clamp(36px,11.5vw,48px)]"
+                    : "text-[clamp(26px,2.4vw,32px)] tall:text-[clamp(32px,3vw,46px)]"
+                )}
               >
                 {inr(left)}
               </span>
-              <span className="text-xs text-muted-foreground tall:text-sm">
+              <span
+                className={cn(
+                  "text-muted-foreground",
+                  phone ? "text-base leading-none" : "text-xs tall:text-sm"
+                )}
+              >
                 {t("staff.leftShort")}
               </span>
             </p>
@@ -996,6 +1010,7 @@ function StaffCard({
               disabled={marking}
               className={cn(
                 ACTION,
+                phone && ACTION_PHONE,
                 here
                   ? "bg-transparent text-foreground shadow-[inset_0_0_0_1.5px_var(--lime)]"
                   : "bg-lime text-black"
@@ -1008,9 +1023,11 @@ function StaffCard({
               ) : (
                 <CalendarCheckIcon size={16} aria-hidden />
               )}
-              <Swap on={here} off={t("staff.btn.attendance")}>
-                {t("staff.btn.attendanceDone")}
-              </Swap>
+              <span className="min-w-0 truncate">
+                {here
+                  ? t("staff.btn.attendanceDone")
+                  : t("staff.btn.attendance")}
+              </span>
             </button>
           </Tip>
           <Tip
@@ -1021,7 +1038,7 @@ function StaffCard({
                 type="button"
                 onClick={() => onPay("STAFF_ADVANCE")}
                 disabled={left <= 0}
-                className={cn(ACTION, SECONDARY)}
+                className={cn(ACTION, phone && ACTION_PHONE, SECONDARY)}
               >
                 <HandCoinsIcon size={16} aria-hidden />
                 {t("staff.btn.advance")}
@@ -1036,7 +1053,7 @@ function StaffCard({
                 type="button"
                 onClick={() => onPay("SALARY_PAID")}
                 disabled={left <= 0}
-                className={cn(ACTION, SECONDARY)}
+                className={cn(ACTION, phone && ACTION_PHONE, SECONDARY)}
               >
                 <WalletIcon size={16} aria-hidden />
                 {t("staff.btn.salary")}
@@ -1110,6 +1127,8 @@ function Given({
 const ACTION =
   "flex h-10 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[14px] [&_svg]:shrink-0 whitespace-nowrap transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 tall:h-12 tall:text-[15px]"
 const SECONDARY = "bg-card text-foreground"
+// Three buttons share a phone-width card: less inner room, so "Present" and "Salary" fit whole.
+const ACTION_PHONE = "gap-1.5 px-2 text-[13px]"
 
 function Tile({
   value,
