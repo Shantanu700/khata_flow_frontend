@@ -125,15 +125,15 @@ export function LedgerCard({
         >
           {title}
         </h2>
-        <p
-          data-roll={flip && "card-sub"}
-          className={cn(
-            "font-light text-muted-foreground",
-            phone ? "text-lg" : "text-2xl"
-          )}
-        >
-          {sub}
-        </p>
+        {/* Phones show just the title: the counts are in the list itself. */}
+        {!phone && (
+          <p
+            data-roll={flip && "card-sub"}
+            className="text-2xl font-light text-muted-foreground"
+          >
+            {sub}
+          </p>
+        )}
       </div>
       <Notch
         corner="tr"

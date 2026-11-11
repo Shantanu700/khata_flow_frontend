@@ -138,12 +138,14 @@ export function KhataScreen() {
             >
               {t("khata.listTitle")}
             </h2>
-            <p data-roll="side-sub" className="text-sm text-muted-foreground">
-              {t("khata.listSub", {
-                count: summary.data?.customer_count ?? 0,
-                owing: summary.data?.owing_count ?? 0,
-              })}
-            </p>
+            {!phone && (
+              <p data-roll="side-sub" className="text-sm text-muted-foreground">
+                {t("khata.listSub", {
+                  count: summary.data?.customer_count ?? 0,
+                  owing: summary.data?.owing_count ?? 0,
+                })}
+              </p>
+            )}
           </div>
           <Notch
             corner="tr"
