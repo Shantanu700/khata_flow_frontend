@@ -768,9 +768,9 @@ function StaffCard({
         <div
           role="group"
           aria-label={t("staff.last14")}
-          className="flex items-center gap-3"
+          className="flex flex-col-reverse gap-2 @md:flex-row @md:items-center @md:gap-3"
         >
-          <div className="grid max-w-[560px] flex-1 grid-cols-[repeat(14,minmax(0,1fr))] items-center justify-items-center gap-1 short:max-w-[340px]">
+          <div className="grid flex-1 grid-cols-[repeat(14,minmax(0,1fr))] items-center justify-items-center gap-1.5 @md:max-w-[560px] @md:gap-1 @md:short:max-w-[340px]">
             {days.map((iso, i) => (
               <span
                 key={iso}
@@ -784,7 +784,7 @@ function StaffCard({
                       "aspect-square w-full max-w-6 rounded-full short:max-w-3.5",
                       present.has(iso) ? "bg-cyan" : "bg-card",
                       i === 13 &&
-                        "ring-2 ring-foreground/35 ring-offset-2 ring-offset-raised"
+                        "ring-2 ring-foreground/35 @md:ring-offset-2 @md:ring-offset-raised"
                     )}
                   />
                 </Tip>
