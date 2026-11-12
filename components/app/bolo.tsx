@@ -48,9 +48,12 @@ import {
   TraceTitle,
 } from "@/components/ui/trace"
 import { Notch, notchRadius } from "@/components/notch"
+import type { LanguageEnum } from "@/lib/client/types.gen"
 import {
-  api,
   apiProgress,
+  postV1VoiceCommands,
+  postV1VoiceCommandsCancel,
+  postV1VoiceTextCommands,
   isoDay,
   type Progress,
   type VoiceCommand,
@@ -86,7 +89,7 @@ const recordingType = () =>
  *  and a cancel or answer can give the same message a new reply, so the URL changes with it. */
 const audioUrl = (c: VoiceCommand) =>
   c.response_audio_url
-    ? `/api/kf/voice/commands/${c.id}/audio?v=${encodeURIComponent(c.updated_at)}`
+    ? `/api/v1/voice/commands/${c.id}/audio/?v=${encodeURIComponent(c.updated_at)}`
     : null
 
 const total = (c: VoiceCommand) =>
@@ -243,7 +246,7 @@ export function BoloScreen() {
   // The server reverses anything the message already wrote; only then stop reading its stream.
   const drop = React.useCallback(
     (mine: Job) =>
-      run(() => api(`voice/commands/${mine.id}/cancel`, { method: "POST" }))
+      run(() => postV1VoiceCommandsCancel({ path: { id: mine.id! } }))
         .catch(() => setError(t("error.generic")))
         .finally(() => mine.abort.abort()),
     [run, t]
@@ -288,9 +291,18 @@ export function BoloScreen() {
       setSentText(text)
       const chat = chatRef.current
       return send(begin("text"), (progress) =>
-        apiProgress<VoiceCommand>(
-          "voice/text-commands",
-          { json: { text, language: code, ...(chat ? { chat } : {}) } },
+        apiProgress(
+          (signal) =>
+            postV1VoiceTextCommands({
+              body: {
+                text,
+                language: code as LanguageEnum,
+                ...(chat ? { chat } : {}),
+              },
+              query: { progress: true },
+              parseAs: "stream",
+              signal,
+            }),
           progress
         )
       )
@@ -350,16 +362,27 @@ export function BoloScreen() {
       stream.getTracks().forEach((track) => track.stop())
       if (mine.cancelled) return
       const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" })
-      const form = new FormData()
-      form.append(
-        "audio",
-        blob,
-        `command.${blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm"}`
+      const audio = new File(
+        [blob],
+        `command.${blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm"}`,
+        { type: blob.type }
       )
-      form.append("language", code)
-      if (chatRef.current) form.append("chat", String(chatRef.current))
+      const chat = chatRef.current
       send(mine, (progress) =>
-        apiProgress<VoiceCommand>("voice/commands", { form }, progress)
+        apiProgress(
+          (signal) =>
+            postV1VoiceCommands({
+              body: {
+                audio,
+                language: code as LanguageEnum,
+                ...(chat ? { chat } : {}),
+              },
+              query: { progress: true },
+              parseAs: "stream",
+              signal,
+            }),
+          progress
+        )
       )
     }
     const finish = () => rec.state === "recording" && rec.stop()

@@ -7,14 +7,21 @@ import { toast } from "sonner"
 import { errorText, useI18n } from "@/components/app/i18n"
 import { initial } from "@/components/app/khata-data"
 import { FormActions, FormError } from "@/components/app/ledger"
-import { api } from "@/lib/api"
+import {
+  data,
+  deleteV1MePhoto,
+  deleteV1PartiesPhoto,
+  putV1MePhoto,
+  putV1PartiesPhoto,
+  type Party,
+} from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 const SIDE = 256
 
 /** "parties/3" or "me": where a photo lives on the API. */
 export const photoSrc = (path: string, key?: string | null) =>
-  key ? `/api/kf/${path}/photo?v=${key}` : null
+  key ? `/api/v1/${path}/photo/?v=${key}` : null
 
 /** The photo, filling its round frame, or the name's first letter. */
 export function Face({ name, src }: { name: string; src: string | null }) {
@@ -63,16 +70,27 @@ async function shrink(file: File): Promise<Blob> {
 /** A new photo, null to remove it, or undefined to leave it. */
 export type PhotoChange = Blob | null | undefined
 
-/** The saved row (the party, or for "me" the session), or undefined when nothing changed. */
-export async function savePhoto<T = unknown>(
-  path: string,
-  change: PhotoChange
-): Promise<T | undefined> {
+const asFile = (photo: Blob) =>
+  new File([photo], "photo.jpg", { type: photo.type || "image/jpeg" })
+
+/** The session with the shop's new photo, or undefined when nothing changed. */
+export async function saveMyPhoto(change: PhotoChange) {
   if (change === undefined) return undefined
-  if (change === null) return api<T>(`${path}/photo`, { method: "DELETE" })
-  const form = new FormData()
-  form.append("photo", change, "photo.jpg")
-  return api<T>(`${path}/photo`, { method: "PUT", form })
+  return change === null
+    ? data(deleteV1MePhoto())
+    : data(putV1MePhoto({ body: { photo: asFile(change) } }))
+}
+
+/** The party with its new photo, or undefined when nothing changed. */
+export async function savePartyPhoto(id: number, change: PhotoChange) {
+  if (change === undefined) return undefined
+  const saved =
+    change === null
+      ? data(deleteV1PartiesPhoto({ path: { id } }))
+      : data(
+          putV1PartiesPhoto({ path: { id }, body: { photo: asFile(change) } })
+        )
+  return saved as Promise<Party>
 }
 
 /** Optional photo for a form: a round preview with Add / Change and Remove. */

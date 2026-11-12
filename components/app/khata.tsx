@@ -56,7 +56,7 @@ import {
   Face,
   PhotoField,
   photoSrc,
-  savePhoto,
+  savePartyPhoto,
   type PhotoChange,
 } from "@/components/app/photo"
 import { useShell } from "@/components/app/shell"
@@ -975,7 +975,7 @@ function CustomerForm({
             },
             item.id
           )
-          .then(async (p) => (await savePhoto(`parties/${p.id}`, photo), p))
+          .then(async (p) => (await savePartyPhoto(p.id, photo), p))
           .then(toasted(t("toast.updated", { name: item.name })))
           .then((p) => p.id)
       )
@@ -984,7 +984,7 @@ function CustomerForm({
     const opening = Number(f.get("opening"))
     save(async () => {
       const party = await write.saveParty({ name, aliases, kind: "CUSTOMER" })
-      await savePhoto(`parties/${party.id}`, photo)
+      await savePartyPhoto(party.id, photo)
       if (opening > 0)
         await write.addEntry({
           kind: "CREDIT_GIVEN",

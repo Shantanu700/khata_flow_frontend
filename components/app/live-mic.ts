@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { api } from "@/lib/api"
+import { data, postV1VoiceStreamTicket } from "@/lib/api"
 
 // Gnani's stream takes 16 kHz 16-bit mono PCM in 1,024-byte frames (512 samples) at real-time pace; the mic runs
 // at 44.1 or 48 kHz, so each output sample averages the input samples it covers.
@@ -76,10 +76,7 @@ export function useLiveMic() {
       const mine: Session = { ctx, ws: null, timer }
       session.current = mine
       try {
-        const ticketing = api<{ ticket: string; url: string }>(
-          "voice/stream-ticket",
-          { method: "POST" }
-        )
+        const ticketing = data(postV1VoiceStreamTicket())
         await ctx.audioWorklet.addModule(
           URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" }))
         )

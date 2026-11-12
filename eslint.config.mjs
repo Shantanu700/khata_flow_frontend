@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated from the API schema by `bun run gen:api`.
+    "lib/client/**",
     // design-sync: staged converter scripts and generated bundle
     ".ds-sync/**",
     "ds-bundle/**",

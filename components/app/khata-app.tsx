@@ -33,7 +33,7 @@ import {
   screenAt,
   type Screen,
 } from "@/components/app/khata-data"
-import { photoSrc, savePhoto } from "@/components/app/photo"
+import { photoSrc, saveMyPhoto } from "@/components/app/photo"
 import { LanguagePicker } from "@/components/app/language-picker"
 import { LayoutContext, layoutFor } from "@/components/app/layout"
 import { LoginScreen } from "@/components/app/login"
@@ -44,7 +44,7 @@ import { StockScreen } from "@/components/app/stock"
 import { useTheme } from "@/components/app/theme"
 import { useScreenMorph } from "@/components/app/use-screen-morph"
 import { Tip } from "@/components/app/parts"
-import { ApiError, SIGNED_OUT, api, type Me } from "@/lib/api"
+import { ApiError, SIGNED_OUT, data, getV1I18N, type Me } from "@/lib/api"
 import { reduceMotion } from "@/lib/motion"
 import { ProgressBar } from "@/components/app/progress-bar"
 import { cn } from "@/lib/utils"
@@ -108,7 +108,10 @@ function Gate() {
     picked.current = true
     await client.prefetchQuery({
       queryKey: keys.strings(next),
-      queryFn: () => api<Record<string, string>>(`i18n/${next}`),
+      queryFn: () =>
+        data(getV1I18N({ path: { code: next } })) as Promise<
+          Record<string, string>
+        >,
     })
     setGuest(next)
     try {
@@ -302,7 +305,7 @@ function App({ me }: { me: Me }) {
             shop={{ name: shop, photo: photoSrc("me", me.shop.photo_key) }}
             saveShopPhoto={(change) =>
               run(async () => {
-                const session = await savePhoto<Me>("me", change)
+                const session = await saveMyPhoto(change)
                 if (session) client.setQueryData(keys.me, session)
               })
             }
