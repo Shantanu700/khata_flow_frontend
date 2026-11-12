@@ -6,7 +6,7 @@ import { API_URL, TOKEN_COOKIE } from "@/lib/session"
 // Readable without signing in: the screens' words in each language.
 const PUBLIC = ["i18n"]
 
-/** Forwards /api/kf/<path> to the API's /api/v1/<path>/, adding the token from the httpOnly cookie. */
+/** Forwards /api/v1/<path>/ to the API's own /api/v1/<path>/, adding the token from the httpOnly cookie. */
 async function forward(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }

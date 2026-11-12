@@ -57,7 +57,7 @@ import {
   Face,
   PhotoField,
   photoSrc,
-  savePhoto,
+  savePartyPhoto,
   type PhotoChange,
 } from "@/components/app/photo"
 import { useShell } from "@/components/app/shell"
@@ -1247,7 +1247,7 @@ function StaffForm({
           },
           person?.id
         )
-        await savePhoto(`parties/${saved.id}`, photo)
+        await savePartyPhoto(saved.id, photo)
       })
       toast.success(t(person ? "toast.updated" : "toast.added", { name }))
       onDone()

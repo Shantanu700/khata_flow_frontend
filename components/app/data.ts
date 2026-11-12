@@ -11,18 +11,41 @@ import {
 import type { Screen } from "@/components/app/khata-data"
 
 import {
-  api,
-  type Chat,
-  type Entry,
-  type EntryKind,
-  type Me,
+  data,
+  deleteV1Parties,
+  deleteV1Products,
+  getV1I18N,
+  getV1Me,
+  getV1Parties,
+  getV1PartiesMonth,
+  getV1Summary,
+  getV1VoiceChats,
+  getV1VoiceChatsMessages,
+  listV1Entries,
+  listV1I18N,
+  listV1Parties,
+  listV1Products,
+  postV1Entries,
+  postV1EntriesUndo,
+  postV1Parties,
+  postV1Products,
+  putV1Me,
+  putV1Parties,
+  putV1PartiesAttendance,
+  putV1Products,
   type Page,
   type Party,
   type Product,
-  type StaffMonth,
-  type Summary,
-  type VoiceCommand,
 } from "@/lib/api"
+import type {
+  AttendanceRequest,
+  EntryCreateRequest,
+  ListV1EntriesData,
+  ListV1PartiesData,
+  ListV1ProductsData,
+  PartyRequest,
+  ProductRequest,
+} from "@/lib/client/types.gen"
 
 /** Page sizes the screens were designed around; a chat loads its newest `chat` messages, then more on request. */
 export const SIZE = {
@@ -33,40 +56,24 @@ export const SIZE = {
   chat: 50,
 } as const
 
-export type CustomerParams = {
-  q?: string
-  balance?: "owing" | "clear"
-  ordering?: string
-  page: number
-  page_size: number
-}
-export type LedgerParams = {
-  kind?: string
-  date_from?: string
-  date_to?: string
-  page: number
-}
-export type ProductParams = {
-  q?: string
-  low?: boolean
-  page: number
-  page_size: number
-}
-export type EntryParams = {
-  kind?: string
-  q?: string
-  product?: number
-  date_from?: string
-  date_to?: string
-  ordering?: string
-  page: number
-}
-export type StaffParams = {
-  q?: string
-  advance?: "yes" | "no"
-  page: number
-  page_size: number
-}
+type Query<T extends { query?: unknown }> = NonNullable<T["query"]>
+type Paged = { page: number; page_size: number }
+export type CustomerParams = Pick<
+  Query<ListV1PartiesData>,
+  "q" | "balance" | "ordering"
+> &
+  Paged
+export type LedgerParams = Pick<
+  Query<ListV1EntriesData>,
+  "kind" | "date_from" | "date_to"
+> & { page: number }
+export type ProductParams = Pick<Query<ListV1ProductsData>, "q" | "low"> & Paged
+export type EntryParams = Pick<
+  Query<ListV1EntriesData>,
+  "kind" | "q" | "product" | "date_from" | "date_to" | "ordering"
+> & { page: number }
+export type StaffParams = Pick<Query<ListV1PartiesData>, "q" | "advance"> &
+  Paged
 
 // Kept between pages, filters and searches, so a table never blanks while the next page loads.
 const kept = { placeholderData: keepPreviousData }
@@ -88,17 +95,21 @@ export const keys = {
   chat: (id: number) => ["chat", id] as const,
 }
 
+// Parties and products as `Sent` (see lib/api.ts): the generated types leave their defaulted fields optional.
+const parties = (query: Query<ListV1PartiesData>) =>
+  data(listV1Parties({ query })) as Promise<Page<Party>>
+const products = (query: Query<ListV1ProductsData>) =>
+  data(listV1Products({ query })) as Promise<Page<Product>>
+
 const fetchers = {
-  customers: (p: CustomerParams) =>
-    api<Page<Party>>("parties", { params: { kind: "CUSTOMER", ...p } }),
-  products: (p: ProductParams) => api<Page<Product>>("products", { params: p }),
-  staff: (p: StaffParams) =>
-    api<Page<Party>>("parties", { params: { kind: "STAFF", ...p } }),
+  customers: (p: CustomerParams) => parties({ kind: "CUSTOMER", ...p }),
+  products: (p: ProductParams) => products(p),
+  staff: (p: StaffParams) => parties({ kind: "STAFF", ...p }),
   entries: (p: EntryParams) =>
-    api<Page<Entry>>("entries", { params: { ...p, page_size: SIZE.table } }),
-  summary: () => api<Summary>("summary"),
+    data(listV1Entries({ query: { ...p, page_size: SIZE.table } })),
+  summary: () => data(getV1Summary()),
   chats: (page: number) =>
-    api<Page<Chat>>("voice/chats", { params: { page, page_size: SIZE.table } }),
+    data(getV1VoiceChats({ query: { page, page_size: SIZE.table } })),
 }
 
 /** Load what a screen shows first, so a tab switch can fetch it during the exit animation. */
@@ -147,7 +158,7 @@ export function preload(client: QueryClient, screen: Screen): Promise<void> {
 export const useMe = () =>
   useQuery({
     queryKey: keys.me,
-    queryFn: () => api<Me>("me"),
+    queryFn: () => data(getV1Me()),
     retry: false,
     staleTime: Infinity,
   })
@@ -155,15 +166,15 @@ export const useMe = () =>
 export const useLanguages = () =>
   useQuery({
     queryKey: keys.languages,
-    queryFn: () =>
-      api<{ code: string; name: string; native_name: string }[]>("i18n"),
+    queryFn: () => data(listV1I18N()),
     staleTime: Infinity,
   })
 
 export const useStrings = (code: string) =>
   useQuery({
     queryKey: keys.strings(code),
-    queryFn: () => api<Record<string, string>>(`i18n/${code}`),
+    queryFn: () =>
+      data(getV1I18N({ path: { code } })) as Promise<Record<string, string>>,
     staleTime: Infinity,
   })
 
@@ -180,7 +191,8 @@ export const useCustomers = (p: CustomerParams) =>
 export const useCustomer = (id: number | null) =>
   useQuery({
     queryKey: keys.customer(id ?? 0),
-    queryFn: () => api<Party>(`parties/${id}`),
+    queryFn: () =>
+      data(getV1Parties({ path: { id: id ?? 0 } })) as Promise<Party>,
     enabled: id !== null,
   })
 
@@ -188,9 +200,11 @@ export const useLedger = (id: number | null, p: LedgerParams) =>
   useQuery({
     queryKey: keys.ledger(id ?? 0, p),
     queryFn: () =>
-      api<Page<Entry>>("entries", {
-        params: { party: id, page_size: SIZE.table, ...p },
-      }),
+      data(
+        listV1Entries({
+          query: { party: id ?? undefined, page_size: SIZE.table, ...p },
+        })
+      ),
     enabled: id !== null,
     ...kept,
   })
@@ -206,10 +220,7 @@ export const useProducts = (p: ProductParams) =>
 export const useProductNames = () =>
   useQuery({
     queryKey: ["productNames"],
-    queryFn: () =>
-      api<Page<Product>>("products", { params: { page_size: 100 } }).then(
-        (p) => p.results
-      ),
+    queryFn: () => products({ page_size: 100 }).then((p) => p.results),
   })
 
 export const useStockMoves = (p: EntryParams) =>
@@ -229,8 +240,7 @@ export const useStaff = (p: StaffParams) =>
 export const useStaffMonth = (id: number, month: string) =>
   useQuery({
     queryKey: keys.staffMonth(id, month),
-    queryFn: () =>
-      api<StaffMonth>(`parties/${id}/month`, { params: { month } }),
+    queryFn: () => data(getV1PartiesMonth({ path: { id }, query: { month } })),
     ...kept,
   })
 
@@ -239,15 +249,17 @@ export const useStaffMoves = (id: number, from: string, to: string) =>
   useQuery({
     queryKey: ["staffMoves", id, from, to],
     queryFn: () =>
-      api<Page<Entry>>("entries", {
-        params: {
-          party: id,
-          kind: "STAFF_ADVANCE,SALARY_PAID,REVERSAL",
-          date_from: from,
-          date_to: to,
-          page_size: 100,
-        },
-      }),
+      data(
+        listV1Entries({
+          query: {
+            party: id,
+            kind: "STAFF_ADVANCE,SALARY_PAID,REVERSAL",
+            date_from: from,
+            date_to: to,
+            page_size: 100,
+          },
+        })
+      ),
     ...kept,
   })
 
@@ -270,66 +282,40 @@ export const useChatMessages = (id: number | null) =>
   useInfiniteQuery({
     queryKey: keys.chat(id ?? 0),
     queryFn: ({ pageParam }) =>
-      api<Page<VoiceCommand>>(`voice/chats/${id}/messages`, {
-        params: { page: pageParam, page_size: SIZE.chat },
-      }),
+      data(
+        getV1VoiceChatsMessages({
+          path: { id: id ?? 0 },
+          query: { page: pageParam, page_size: SIZE.chat },
+        })
+      ),
     initialPageParam: 1,
     getNextPageParam: (last, all) => (last.next ? all.length + 1 : undefined),
     enabled: id !== null,
   })
 
-export type PartyBody = {
-  name: string
-  aliases: string[]
-  kind: "CUSTOMER" | "STAFF"
-  monthly_salary?: number | null
-  is_active?: boolean
-}
-export type ProductBody = {
-  name: string
-  aliases: string[]
-  unit: Product["unit"]
-  low_stock_threshold: number
-  is_active?: boolean
-}
 /** A staff member's day: a full day, a half day, or no attendance. */
-export type DayMark = "present" | "half" | "absent"
-
-export type EntryBody = {
-  kind: Exclude<EntryKind, "REVERSAL">
-  party?: number
-  product?: number
-  amount?: number
-  quantity?: number
-  note?: string
-}
+export type DayMark = AttendanceRequest["mark"]
 
 /** Writes. Updates are PUT with the whole object (never PATCH). */
 export const write = {
-  saveParty: (body: PartyBody, id?: number) =>
-    id
-      ? api<Party>(`parties/${id}`, { method: "PUT", json: body })
-      : api<Party>("parties", { method: "POST", json: body }),
-  deleteParty: (id: number) => api<void>(`parties/${id}`, { method: "DELETE" }),
-  saveProduct: (body: ProductBody, id?: number) =>
-    id
-      ? api<Product>(`products/${id}`, { method: "PUT", json: body })
-      : api<Product>("products", { method: "POST", json: body }),
-  deleteProduct: (id: number) =>
-    api<void>(`products/${id}`, { method: "DELETE" }),
-  addEntry: (body: EntryBody) =>
-    api<Entry>("entries", { method: "POST", json: body }),
-  undo: (id: number) => api<Entry>(`entries/${id}/undo`, { method: "POST" }),
+  saveParty: (body: PartyRequest, id?: number) =>
+    (id
+      ? data(putV1Parties({ path: { id }, body }))
+      : data(postV1Parties({ body }))) as Promise<Party>,
+  deleteParty: (id: number) => data(deleteV1Parties({ path: { id } })),
+  saveProduct: (body: ProductRequest, id?: number) =>
+    (id
+      ? data(putV1Products({ path: { id }, body }))
+      : data(postV1Products({ body }))) as Promise<Product>,
+  deleteProduct: (id: number) => data(deleteV1Products({ path: { id } })),
+  addEntry: (body: EntryCreateRequest) => data(postV1Entries({ body })),
+  undo: (id: number) => data(postV1EntriesUndo({ path: { id } })),
   setAttendance: (id: number, on: string, mark: DayMark) =>
-    api<Party>(`parties/${id}/attendance`, {
-      method: "PUT",
-      json: { on, mark },
-    }),
+    data(
+      putV1PartiesAttendance({ path: { id }, body: { on, mark } })
+    ) as Promise<Party>,
   setLanguage: (code: string) =>
-    api<Me>("me", {
-      method: "PUT",
-      json: { shop: { preferred_language: code } },
-    }),
+    data(putV1Me({ body: { shop: { preferred_language: code } } })),
 }
 
 /** `value` once it has stopped changing for `ms` (search boxes query the server as you pause typing). */

@@ -40,7 +40,7 @@ bun run dev:api                # http://localhost:3100
 ```
 
 `dev:api` passes mkcert's root certificate to Node (`NODE_EXTRA_CA_CERTS`), so the app's server can call the
-API's local HTTPS with certificate checks on. The browser only ever calls this app (`/api/kf/*`, `/api/session`),
+API's local HTTPS with certificate checks on. The browser only ever calls this app (`/api/v1/*`, `/api/session`),
 which keeps the API token in an httpOnly cookie.
 
 - Type-check: `bun run typecheck`
@@ -57,4 +57,4 @@ which keeps the API token in an httpOnly cookie.
   whole object, never PATCH.
 - **Speak** records the microphone, streams it to the API's live-transcript WebSocket for words on screen, and
   sends the recording for the command (`components/app/bolo.tsx`, `components/app/live-mic.ts`).
-- **Words on screen** come from the API's catalogs (`/api/kf/i18n/<language>`), one per language.
+- **Words on screen** come from the API's catalogs (`/api/v1/i18n/<language>/`), one per language.
