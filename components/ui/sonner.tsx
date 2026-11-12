@@ -34,13 +34,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={dark ? "dark" : "light"}
       position={phone ? "top-center" : "bottom-right"}
-      richColors
       className="toaster group"
       icons={{
-        success: <CircleCheckIcon className="size-4" />,
+        success: <CircleCheckIcon className="size-4 text-lime-ink" />,
         info: <InfoIcon className="size-4" />,
-        warning: <TriangleAlertIcon className="size-4" />,
-        error: <OctagonXIcon className="size-4" />,
+        warning: <TriangleAlertIcon className="size-4 text-amber-500" />,
+        error: <OctagonXIcon className="size-4 text-destructive" />,
         loading: <Loader2Icon className="size-4 animate-spin" />,
       }}
       style={
