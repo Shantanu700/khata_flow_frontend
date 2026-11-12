@@ -197,8 +197,15 @@ export function DateRange({
                   <div
                     key={iso}
                     className={cn(
-                      "flex h-10 items-center justify-center",
-                      inside && !future && "bg-lime/15",
+                      "flex h-9 items-center justify-center",
+                      inside &&
+                        !future &&
+                        shown?.from !== shown?.to &&
+                        (iso === shown?.from
+                          ? "bg-linear-to-r from-transparent from-50% to-lime/15 to-50%"
+                          : iso === shown?.to
+                            ? "bg-linear-to-l from-transparent from-50% to-lime/15 to-50%"
+                            : "bg-lime/15"),
                       (iso === shown?.from || col === 0) && "rounded-l-full",
                       (iso === shown?.to || col === 6) && "rounded-r-full"
                     )}
@@ -212,7 +219,7 @@ export function DateRange({
                       aria-label={short(iso, locale)}
                       aria-pressed={inside}
                       className={cn(
-                        "grid size-10 cursor-pointer place-items-center rounded-full text-sm tabular-nums transition-colors duration-150 disabled:cursor-default disabled:opacity-30",
+                        "grid size-9 cursor-pointer place-items-center rounded-full text-sm tabular-nums transition-colors duration-150 disabled:cursor-default disabled:opacity-30",
                         edge
                           ? "bg-lime text-black"
                           : !future && "hover:bg-raised",
