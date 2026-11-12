@@ -234,22 +234,25 @@ function App({ me }: { me: Me }) {
     client.removeQueries({ predicate: (q) => q.queryKey[0] !== keys.me[0] })
   }
 
-  const setLanguage = async (next: string) => {
-    if (next === code) return
-    if (!reduceMotion()) freezeRolls()
-    setSaving((n) => n + 1)
-    try {
-      const [session] = await Promise.all([
-        write.setLanguage(next),
-        client.prefetchQuery({ queryKey: keys.strings(next) }),
-      ])
-      client.setQueryData(keys.me, session)
-    } finally {
-      setSaving((n) => n - 1)
-    }
-    await frame()
-    rollTexts()
-  }
+  const setLanguage = React.useCallback(
+    async (next: string) => {
+      if (next === code) return
+      if (!reduceMotion()) freezeRolls()
+      setSaving((n) => n + 1)
+      try {
+        const [session] = await Promise.all([
+          write.setLanguage(next),
+          client.prefetchQuery({ queryKey: keys.strings(next) }),
+        ])
+        client.setQueryData(keys.me, session)
+      } finally {
+        setSaving((n) => n - 1)
+      }
+      await frame()
+      rollTexts()
+    },
+    [client, code, freezeRolls, rollTexts]
+  )
 
   const shell = React.useMemo(
     () => ({
@@ -262,8 +265,9 @@ function App({ me }: { me: Me }) {
       setSaid,
       chatId,
       setChatId,
+      setLanguage,
     }),
-    [go, run, customerId, said, chatId]
+    [go, run, customerId, said, chatId, setLanguage]
   )
 
   const { phone, narrow, compact } = layout

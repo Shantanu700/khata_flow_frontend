@@ -17,33 +17,48 @@ const watchTheme = (changed: () => void) => {
   return () => watcher.disconnect()
 }
 const darkNow = () => document.documentElement.classList.contains("dark")
+// The phone frame (components/app/layout.ts): its bottom holds the tab bar and the composer, so toasts go on top.
+const PHONE = "(max-width: 599px), (max-height: 479px)"
+const watchPhone = (changed: () => void) => {
+  const query = window.matchMedia(PHONE)
+  query.addEventListener("change", changed)
+  return () => query.removeEventListener("change", changed)
+}
+const phoneNow = () => window.matchMedia(PHONE).matches
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const dark = React.useSyncExternalStore(watchTheme, darkNow, () => true)
+  const phone = React.useSyncExternalStore(watchPhone, phoneNow, () => false)
 
   return (
     <Sonner
       theme={dark ? "dark" : "light"}
-      richColors
+      position={phone ? "top-center" : "bottom-right"}
       className="toaster group"
       icons={{
-        success: <CircleCheckIcon className="size-4" />,
+        success: <CircleCheckIcon className="size-4 text-lime-ink" />,
         info: <InfoIcon className="size-4" />,
-        warning: <TriangleAlertIcon className="size-4" />,
-        error: <OctagonXIcon className="size-4" />,
+        warning: <TriangleAlertIcon className="size-4 text-amber-500" />,
+        error: <OctagonXIcon className="size-4 text-destructive" />,
         loading: <Loader2Icon className="size-4 animate-spin" />,
       }}
       style={
         {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          "--normal-bg": "var(--card)",
+          "--normal-text": "var(--card-foreground)",
+          "--normal-border": "var(--line)",
+          "--border-radius": "28px",
         } as React.CSSProperties
       }
       toastOptions={{
+        // Matches the app's popovers (language, dates): card surface, 28px corners, lime pill for the action.
         classNames: {
-          toast: "cn-toast",
+          toast:
+            "cn-toast kf-app gap-3! p-4! pl-5! font-sans! shadow-[0_24px_60px_rgb(0_0_0/0.35)]!",
+          title: "text-sm! font-medium!",
+          description: "text-[13px]! leading-snug! text-muted-foreground!",
+          actionButton:
+            "h-10! shrink-0! rounded-full! bg-lime! px-4! text-sm! font-medium! text-black!",
         },
       }}
       {...props}
