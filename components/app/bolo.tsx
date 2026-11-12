@@ -14,13 +14,6 @@ import {
   XIcon,
 } from "lucide-react"
 
-import {
-  SIZE,
-  useChatMessages,
-  useChats,
-  useLanguages,
-} from "@/components/app/data"
-import { toast } from "sonner"
 import { dayLabel, useI18n } from "@/components/app/i18n"
 import { ArrowIcon, Branded, MicIcon, PlayIcon } from "@/components/app/icons"
 import { STAGE_DOT } from "@/components/app/khata-data"
@@ -28,14 +21,16 @@ import { useLayout } from "@/components/app/layout"
 import {
   clearNotch,
   LoadError,
-  pagesOf,
   Pager,
   useNotchBox,
   Loading,
 } from "@/components/app/ledger"
-import { useLiveMic } from "@/components/app/live-mic"
 import { CornerButton, Dot, PanelTitle, Tip } from "@/components/app/parts"
-import { useShell } from "@/components/app/shell"
+import { useChatThread } from "@/components/app/use-chat-thread"
+import { useCommand } from "@/components/app/use-command"
+import { useLanguageOffer } from "@/components/app/use-language-offer"
+import { useRecorder } from "@/components/app/use-recorder"
+import { useReplyAudio } from "@/components/app/use-reply-audio"
 import { Waveform } from "@/components/app/waveform"
 import {
   Trace,
@@ -48,16 +43,7 @@ import {
   TraceTitle,
 } from "@/components/ui/trace"
 import { Notch, notchRadius } from "@/components/notch"
-import type { LanguageEnum } from "@/lib/client/types.gen"
-import {
-  apiProgress,
-  postV1VoiceCommands,
-  postV1VoiceCommandsCancel,
-  postV1VoiceTextCommands,
-  isoDay,
-  type Progress,
-  type VoiceCommand,
-} from "@/lib/api"
+import { isoDay, type VoiceCommand } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 /** The pipeline's stages as the chips show them, and the timings_ms keys each one adds up. */
@@ -68,30 +54,6 @@ const STAGES: { key: string; timings: string[] }[] = [
   { key: "bolo.stage.ledger", timings: ["resolve", "commit"] },
   { key: "bolo.stage.reply", timings: ["tts"] },
 ]
-const MUTE_KEY = "kf-replies-muted"
-// Gnani accepts up to 20 seconds; stop a little before.
-const MAX_SECONDS = 19
-
-type Phase = "idle" | "listening" | "working" | "done"
-type Mode = "audio" | "text"
-/** The command in flight; `id` arrives as the stream's first line, and a cancel waits for it. */
-type Job = { abort: AbortController; id?: number; cancelled?: boolean }
-
-const recordingType = () =>
-  [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/mp4",
-    "audio/ogg;codecs=opus",
-  ].find((t) => MediaRecorder.isTypeSupported(t)) ?? ""
-
-/** The reply's audio through the app's proxy (the API serves it only to the signed-in owner). The audio is cached,
- *  and a cancel or answer can give the same message a new reply, so the URL changes with it. */
-const audioUrl = (c: VoiceCommand) =>
-  c.response_audio_url
-    ? `/api/v1/voice/commands/${c.id}/audio/?v=${encodeURIComponent(c.updated_at)}`
-    : null
-
 const total = (c: VoiceCommand) =>
   Object.values((c.timings_ms ?? {}) as Record<string, number>).reduce(
     (a, ms) => a + ms,
@@ -99,329 +61,68 @@ const total = (c: VoiceCommand) =>
   )
 
 export function BoloScreen() {
-  const { t, code, locale } = useI18n()
-  const { run, said, setSaid, chatId, setChatId, setLanguage } = useShell()
+  const { t, locale } = useI18n()
   const { phone, compact } = useLayout()
-  const [chatsPage, setChatsPage] = React.useState(1)
-  const chats = useChats(chatsPage)
-  const chatPages = pagesOf(chats.data?.count, SIZE.table)
   const listRef = React.useRef<HTMLElement>(null)
   const listBox = useNotchBox(listRef)
-  const openId = chatId ?? null
-  const messages = useChatMessages(openId)
-  const languages = useLanguages()
-  const [phase, setPhase] = React.useState<Phase>("idle")
-  // The newest reply, shown at once while the chat refetches.
-  const [landed, setLanded] = React.useState<VoiceCommand | null>(null)
-  // Stages the server has reported finished for the message in flight (timings_ms keys → ms).
-  const [ticks, setTicks] = React.useState<Record<string, number>>({})
-  const [mode, setMode] = React.useState<Mode>("audio")
-  const [error, setError] = React.useState("")
-  const [typed, setTyped] = React.useState("")
-  // What was typed (or the answer tapped), shown while it is worked on; a recording shows its live transcript.
-  const [sentText, setSentText] = React.useState("")
-  const recorder = React.useRef<MediaRecorder | null>(null)
-  const stopTimer = React.useRef<number | undefined>(undefined)
-  const player = React.useRef<HTMLAudioElement | null>(null)
-  const job = React.useRef<Job | null>(null)
   const scroller = React.useRef<HTMLDivElement>(null)
-  // Muted: replies don't play by themselves (each still has its own play button). Remembered in this browser.
-  const [muted, setMuted] = React.useState(() => {
-    try {
-      return localStorage.getItem(MUTE_KEY) === "1"
-    } catch {
-      return false
-    }
-  })
-  const mutedRef = React.useRef(muted)
-  React.useEffect(() => {
-    mutedRef.current = muted
-  }, [muted])
-  const toggleMute = () => {
-    const next = !muted
-    if (next) player.current?.pause()
-    setMuted(next)
-    try {
-      localStorage.setItem(MUTE_KEY, next ? "1" : "0")
-    } catch {}
-  }
-  const live = useLiveMic()
-  // Sends read the open chat here, so the header's hand-off never sends into a chat closed meanwhile.
-  const chatRef = React.useRef(openId)
-  React.useEffect(() => {
-    chatRef.current = openId
-  }, [openId])
-  const busy = phase === "working" || phase === "listening"
+  const [typed, setTyped] = React.useState("")
 
-  // First visit: open the newest chat, or none, so the first message starts one.
-  React.useEffect(() => {
-    if (chatId === undefined && chats.data)
-      setChatId(chats.data.results[0]?.id ?? null)
-  }, [chatId, chats.data, setChatId])
-
-  // The words came in a language other than the one on the screens: offer to switch, in the same one tap.
-  React.useEffect(() => {
-    const detected = landed?.detected_language
-    if (!landed || !detected) return
-    // Hinglish screens are Latin script, so Devanagari typed there is worth offering Hindi for; Prisma writes all
-    // Hindi speech in Devanagari, so speech is not.
-    const from =
-      code === "hi-Latn" && landed.input_mode === "TEXT"
-        ? code
-        : code.split("-")[0]
-    const to = detected.split("-")[0]
-    if (from === to) return
-    // Hindi and Marathi are both Devanagari: a script-based tag cannot always tell them apart.
-    if ((from === "hi" || from === "mr") && (to === "hi" || to === "mr")) return
-    // Hinglish is Hindi in Latin letters; English words inside it are not a language switch.
-    if (code === "hi-Latn" && to === "en") return
-    const match = languages.data?.find((l) => l.code === detected)
-    const name = match?.native_name ?? match?.name ?? detected
-    toast(t("bolo.languageMismatch", { language: name }), {
-      id: "language-mismatch",
-      description: t("bolo.languageMismatchBody", { language: name }),
-      action: {
-        label: t("bolo.languageMismatchAction"),
-        onClick: () => {
-          setLanguage(detected).catch(() => undefined)
-        },
-      },
-      duration: 7000,
-    })
-    // Only a new message asks again; switching language must not re-open the toast for an old one.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [landed])
-
-  const thread = React.useMemo(() => {
-    const rows = new Map(
-      (messages.data?.pages ?? [])
-        .flatMap((p) => p.results)
-        .map((m) => [m.id, m])
-    )
-    const known = landed && rows.get(landed.id)
-    if (
-      landed &&
-      landed.chat === openId &&
-      (!known || known.updated_at < landed.updated_at)
-    )
-      rows.set(landed.id, landed)
-    return [...rows.values()].sort((a, b) => a.id - b.id)
-  }, [messages.data, landed, openId])
-  const lastId = thread.at(-1)?.id
-
-  const play = (c: VoiceCommand) => {
-    const url = audioUrl(c)
-    if (!url) return
-    player.current?.pause()
-    player.current = new Audio(url)
-    player.current.play().catch(() => undefined)
-  }
-
+  const { muted, toggleMute, play, autoplay, stop } = useReplyAudio()
+  const chat = useChatThread()
+  const {
+    chats,
+    days: chatDays,
+    page: chatsPage,
+    pages: chatPages,
+    setPage: setChatsPage,
+    openId,
+    title: openTitle,
+    messages,
+    thread,
+    lastId,
+    show,
+  } = chat
+  useLanguageOffer(chat.landed)
   // Show a finished message in its chat, then play its reply.
-  const land = React.useCallback(
+  const onDone = React.useCallback(
     (c: VoiceCommand) => {
-      setLanded(c)
-      if (c.chat !== null) setChatId(c.chat)
-      setPhase("done")
-      const url = audioUrl(c)
-      if (url && !mutedRef.current) {
-        player.current?.pause()
-        player.current = new Audio(url)
-        player.current.play().catch(() => undefined)
-      }
+      show(c)
+      autoplay(c)
     },
-    [setChatId]
+    [show, autoplay]
   )
-
-  const begin = React.useCallback((kind: Mode) => {
-    const mine: Job = { abort: new AbortController() }
-    job.current = mine
-    setError("")
-    setMode(kind)
-    setTicks({})
-    setPhase("working")
-    return mine
-  }, [])
-
-  // The server reverses anything the message already wrote; only then stop reading its stream.
-  const drop = React.useCallback(
-    (mine: Job) =>
-      run(() => postV1VoiceCommandsCancel({ path: { id: mine.id! } }))
-        .catch(() => setError(t("error.generic")))
-        .finally(() => mine.abort.abort()),
-    [run, t]
-  )
-
-  // Through the shell: whatever the message wrote, every screen refetches and its figures roll.
-  const send = React.useCallback(
-    async (mine: Job, call: (progress: Progress) => Promise<VoiceCommand>) => {
-      const progress: Progress = {
-        signal: mine.abort.signal,
-        onId: (id) => {
-          mine.id = id
-          if (mine.cancelled) drop(mine)
-        },
-        onStage: (stage, ms) => {
-          if (!mine.cancelled) setTicks((done) => ({ ...done, [stage]: ms }))
-        },
-      }
-      try {
-        const done = await run(() => call(progress))
-        if (!mine.cancelled) land(done)
-      } catch {
-        if (mine.cancelled) return
-        setPhase("idle")
-        setError(t("error.generic"))
-      }
-    },
-    [drop, land, run, t]
-  )
-
-  const cancel = () => {
-    const mine = job.current
-    if (!mine || mine.cancelled) return
-    mine.cancelled = true
-    setPhase("idle")
-    setError(t("bolo.stage.CANCELLED"))
-    if (mine.id) drop(mine)
-  }
-
-  const sendText = React.useCallback(
-    (text: string) => {
-      setSentText(text)
-      const chat = chatRef.current
-      return send(begin("text"), (progress) =>
-        apiProgress(
-          (signal) =>
-            postV1VoiceTextCommands({
-              body: {
-                text,
-                language: code as LanguageEnum,
-                ...(chat ? { chat } : {}),
-              },
-              query: { progress: true },
-              parseAs: "stream",
-              signal,
-            }),
-          progress
-        )
-      )
-    },
-    [begin, send, code]
-  )
-
-  // Text typed in the header's box arrives here, into the open chat.
-  React.useEffect(() => {
-    if (!said) return
-    // After the effect, not inside it: sending sets this screen's state. Only the effect still standing sends,
-    // or a remount (Strict Mode mounts twice) would send the message twice.
-    let current = true
-    queueMicrotask(() => {
-      if (!current) return
-      setSaid(null)
-      sendText(said)
-    })
-    return () => {
-      current = false
-    }
-  }, [said, setSaid, sendText])
-
-  React.useEffect(
-    () => () => {
-      window.clearTimeout(stopTimer.current)
-      recorder.current?.stream.getTracks().forEach((track) => track.stop())
-      player.current?.pause()
-    },
-    []
-  )
+  const command = useCommand({ chat: chat.current, onDone })
+  const { phase, mode, ticks, error, sentText, busy, sendText, cancel } =
+    command
+  const mic = useRecorder(command)
 
   // Follow the conversation: the newest message, and the words of the one in flight as they arrive.
   React.useEffect(() => {
     const box = scroller.current
     if (box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" })
-  }, [lastId, phase, live.phrases.length, openId])
-
-  const listen = async () => {
-    if (phase === "listening") return recorder.current?.stop()
-    if (phase === "working") return
-    setError("")
-    let stream: MediaStream
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    } catch {
-      return setError(t("bolo.noMic"))
-    }
-    const type = recordingType()
-    const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined)
-    const chunks: Blob[] = []
-    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data)
-    rec.onstop = async () => {
-      window.clearTimeout(stopTimer.current)
-      const mine = begin("audio")
-      await live.stop()
-      stream.getTracks().forEach((track) => track.stop())
-      if (mine.cancelled) return
-      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" })
-      const audio = new File(
-        [blob],
-        `command.${blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm"}`,
-        { type: blob.type }
-      )
-      const chat = chatRef.current
-      send(mine, (progress) =>
-        apiProgress(
-          (signal) =>
-            postV1VoiceCommands({
-              body: {
-                audio,
-                language: code as LanguageEnum,
-                ...(chat ? { chat } : {}),
-              },
-              query: { progress: true },
-              parseAs: "stream",
-              signal,
-            }),
-          progress
-        )
-      )
-    }
-    const finish = () => rec.state === "recording" && rec.stop()
-    recorder.current = rec
-    rec.start()
-    setPhase("listening")
-    void live.start(stream, code, finish)
-    stopTimer.current = window.setTimeout(finish, MAX_SECONDS * 1000)
-  }
+  }, [lastId, phase, mic.phrases.length, openId])
 
   const openChat = (id: number | null) => {
     if (busy) return
-    player.current?.pause()
-    setChatId(id)
-    setLanded(null)
-    setPhase("idle")
-    setError("")
+    stop()
+    chat.open(id)
+    command.reset()
   }
 
-  const openTitle = chats.data?.results.find((c) => c.id === openId)?.title
   const inFlight =
     phase === "working"
       ? mode === "text"
         ? sentText
-        : live.phrases.join(" ") || "…"
+        : mic.phrases.join(" ") || "…"
       : phase === "listening"
-        ? live.phrases.join(" ")
+        ? mic.phrases.join(" ")
         : ""
   const clock = (iso: string) =>
     new Date(iso).toLocaleTimeString(locale, {
       hour: "numeric",
       minute: "2-digit",
     })
-  // The chat list under Today, Yesterday and dated headings, newest first as it comes.
-  const chatDays = Object.entries(
-    Object.groupBy(chats.data?.results ?? [], (c) =>
-      isoDay(new Date(c.last_message_at))
-    )
-  ).map(([day, rows]) => [day, rows ?? []] as const)
   const when = (iso: string) => {
     const at = new Date(iso)
     return isoDay(at) === isoDay()
@@ -551,17 +252,14 @@ export function BoloScreen() {
               <div className="flex size-full animate-in items-center gap-4 pr-1.5 pl-5 duration-300 fade-in-0">
                 <Elapsed />
                 <Waveform
-                  levels={live.levels}
+                  levels={mic.levels}
                   className="h-7 min-w-0 flex-1 text-black"
                 />
                 <Tip label={t("bolo.stop")}>
                   <button
                     type="button"
                     aria-label={t("bolo.stop")}
-                    onClick={() =>
-                      recorder.current?.state === "recording" &&
-                      recorder.current.stop()
-                    }
+                    onClick={mic.stop}
                     className="grid size-[42px] shrink-0 cursor-pointer place-items-center rounded-full bg-black transition-transform duration-150 active:scale-[0.92]"
                   >
                     <span className="size-3 rounded-[3px] bg-lime" />
@@ -573,7 +271,7 @@ export function BoloScreen() {
                 <button
                   type="button"
                   aria-label={t("bolo.press")}
-                  onClick={listen}
+                  onClick={mic.listen}
                   className="grid size-full cursor-pointer place-items-center rounded-[inherit] transition-transform duration-150 active:scale-[0.94]"
                 >
                   <MicIcon size={22} stroke={1.7} />
