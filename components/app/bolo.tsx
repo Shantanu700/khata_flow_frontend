@@ -14,7 +14,12 @@ import {
   XIcon,
 } from "lucide-react"
 
-import { SIZE, useChatMessages, useChats, useLanguages } from "@/components/app/data"
+import {
+  SIZE,
+  useChatMessages,
+  useChats,
+  useLanguages,
+} from "@/components/app/data"
 import { toast } from "sonner"
 import { dayLabel, useI18n } from "@/components/app/i18n"
 import { ArrowIcon, Branded, MicIcon, PlayIcon } from "@/components/app/icons"
@@ -155,7 +160,12 @@ export function BoloScreen() {
   React.useEffect(() => {
     const detected = landed?.detected_language
     if (!landed || !detected) return
-    const from = code.split("-")[0]
+    // Hinglish screens are Latin script, so Devanagari typed there is worth offering Hindi for; Prisma writes all
+    // Hindi speech in Devanagari, so speech is not.
+    const from =
+      code === "hi-Latn" && landed.input_mode === "TEXT"
+        ? code
+        : code.split("-")[0]
     const to = detected.split("-")[0]
     if (from === to) return
     // Hindi and Marathi are both Devanagari: a script-based tag cannot always tell them apart.
