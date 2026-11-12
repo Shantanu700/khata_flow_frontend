@@ -19,6 +19,8 @@ type Shell = {
   /** The chat open on the Speak screen: null for a new one, undefined until the newest has been picked. */
   chatId: number | null | undefined
   setChatId: (id: number | null) => void
+  /** Change the shop's language (screens and voice) and refetch its words. */
+  setLanguage: (code: string) => Promise<void>
 }
 
 export const ShellContext = React.createContext<Shell | null>(null)

@@ -1005,6 +1005,7 @@ export interface components {
             readonly stage: components["schemas"]["CommandStatusEnum"];
             readonly input_mode: components["schemas"]["InputModeEnum"];
             readonly language: string;
+            readonly detected_language: string;
             readonly transcript: string;
             readonly parsed: unknown;
             readonly response_text: string;

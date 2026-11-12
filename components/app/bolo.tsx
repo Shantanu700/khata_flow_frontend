@@ -14,7 +14,8 @@ import {
   XIcon,
 } from "lucide-react"
 
-import { SIZE, useChatMessages, useChats } from "@/components/app/data"
+import { SIZE, useChatMessages, useChats, useLanguages } from "@/components/app/data"
+import { toast } from "sonner"
 import { dayLabel, useI18n } from "@/components/app/i18n"
 import { ArrowIcon, Branded, MicIcon, PlayIcon } from "@/components/app/icons"
 import { STAGE_DOT } from "@/components/app/khata-data"
@@ -91,7 +92,7 @@ const total = (c: VoiceCommand) =>
 
 export function BoloScreen() {
   const { t, code, locale } = useI18n()
-  const { run, said, setSaid, chatId, setChatId } = useShell()
+  const { run, said, setSaid, chatId, setChatId, setLanguage } = useShell()
   const { phone, compact } = useLayout()
   const [chatsPage, setChatsPage] = React.useState(1)
   const chats = useChats(chatsPage)
@@ -100,6 +101,7 @@ export function BoloScreen() {
   const listBox = useNotchBox(listRef)
   const openId = chatId ?? null
   const messages = useChatMessages(openId)
+  const languages = useLanguages()
   const [phase, setPhase] = React.useState<Phase>("idle")
   // The newest reply, shown at once while the chat refetches.
   const [landed, setLanded] = React.useState<VoiceCommand | null>(null)
@@ -148,6 +150,34 @@ export function BoloScreen() {
     if (chatId === undefined && chats.data)
       setChatId(chats.data.results[0]?.id ?? null)
   }, [chatId, chats.data, setChatId])
+
+  // The words came in a language other than the one on the screens: offer to switch, in the same one tap.
+  React.useEffect(() => {
+    const detected = landed?.detected_language
+    if (!landed || !detected) return
+    const from = code.split("-")[0]
+    const to = detected.split("-")[0]
+    if (from === to) return
+    // Hindi and Marathi are both Devanagari: a script-based tag cannot always tell them apart.
+    if ((from === "hi" || from === "mr") && (to === "hi" || to === "mr")) return
+    // Hinglish is Hindi in Latin letters; English words inside it are not a language switch.
+    if (code === "hi-Latn" && to === "en") return
+    const match = languages.data?.find((l) => l.code === detected)
+    const name = match?.native_name ?? match?.name ?? detected
+    toast(t("bolo.languageMismatch", { language: name }), {
+      id: "language-mismatch",
+      description: t("bolo.languageMismatchBody", { language: name }),
+      action: {
+        label: t("bolo.languageMismatchAction"),
+        onClick: () => {
+          setLanguage(detected).catch(() => undefined)
+        },
+      },
+      duration: 7000,
+    })
+    // Only a new message asks again; switching language must not re-open the toast for an old one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [landed])
 
   const thread = React.useMemo(() => {
     const rows = new Map(
