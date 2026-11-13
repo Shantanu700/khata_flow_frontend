@@ -580,7 +580,7 @@ function StaffLedger({ person }: { person: Party }) {
               </span>
             )
             const editable =
-              x.iso >= editFrom() && x.mark !== "future" && x.mark !== "none"
+              x.iso >= editFrom() && x.mark !== "future"
             return editable ? (
               <DayMenu
                 key={x.day}
