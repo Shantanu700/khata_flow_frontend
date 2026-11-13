@@ -3,6 +3,18 @@
 import * as React from "react"
 
 import type { Screen } from "@/components/app/khata-data"
+import type { useCommand } from "@/components/app/use-command"
+import type { useRecorder } from "@/components/app/use-recorder"
+import type { useReplyAudio } from "@/components/app/use-reply-audio"
+import type { VoiceCommand } from "@/lib/api"
+
+export type VoiceController = {
+  command: ReturnType<typeof useCommand>
+  mic: ReturnType<typeof useRecorder>
+  replyAudio: ReturnType<typeof useReplyAudio>
+  landed: VoiceCommand | null
+  setLanded: React.Dispatch<React.SetStateAction<VoiceCommand | null>>
+}
 
 type Shell = {
   /** Switch screens with the morph. */
@@ -21,6 +33,8 @@ type Shell = {
   setChatId: (id: number | null) => void
   /** Change the shop's language (screens and voice) and refetch its words. */
   setLanguage: (code: string) => Promise<void>
+  /** The shared voice controller for the top bar and Bolo screen. */
+  voice: VoiceController
 }
 
 export const ShellContext = React.createContext<Shell | null>(null)

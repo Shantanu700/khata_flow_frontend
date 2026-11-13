@@ -180,12 +180,15 @@ export function useScreenMorph<S extends string>({
       const from = flipState.current
       flipState.current = null
 
-      const fadeIn = (targets: gsap.TweenTarget, vars: gsap.TweenVars) =>
-        gsap.fromTo(
-          targets,
+      const fadeIn = (targets: gsap.TweenTarget, vars: gsap.TweenVars) => {
+        const els = gsap.utils.toArray(targets)
+        if (!els.length) return
+        return gsap.fromTo(
+          els,
           { opacity: 0, transition: "none" },
           { opacity: 1, clearProps: "opacity,transition", ...vars }
         )
+      }
       const slideIn = (els: Element[], delay: number) =>
         els.forEach((el, i) => {
           const pos = getComputedStyle(el).position
@@ -316,7 +319,8 @@ export function useScreenMorph<S extends string>({
           })
         },
       })
-      tl.to(leaving, { opacity: 0, duration: 0.2, transition: "none" }, 0)
+      if (leaving.length)
+        tl.to(leaving, { opacity: 0, duration: 0.2, transition: "none" }, 0)
       leavingPanels.forEach((el) =>
         tl.to(
           el,

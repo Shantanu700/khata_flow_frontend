@@ -25,12 +25,16 @@ import {
   useNotchBox,
   Loading,
 } from "@/components/app/ledger"
-import { CornerButton, Dot, PanelTitle, Tip } from "@/components/app/parts"
+import {
+  CornerButton,
+  Dot,
+  Elapsed,
+  PanelTitle,
+  Tip,
+} from "@/components/app/parts"
+import { useShell } from "@/components/app/shell"
 import { useChatThread } from "@/components/app/use-chat-thread"
-import { useCommand } from "@/components/app/use-command"
 import { useLanguageOffer } from "@/components/app/use-language-offer"
-import { useRecorder } from "@/components/app/use-recorder"
-import { useReplyAudio } from "@/components/app/use-reply-audio"
 import { Waveform } from "@/components/app/waveform"
 import {
   Trace,
@@ -68,7 +72,9 @@ export function BoloScreen() {
   const scroller = React.useRef<HTMLDivElement>(null)
   const [typed, setTyped] = React.useState("")
 
-  const { muted, toggleMute, play, autoplay, stop } = useReplyAudio()
+  const { voice } = useShell()
+  const { command, mic, replyAudio } = voice
+  const { muted, toggleMute, play, autoplay, stop } = replyAudio
   const chat = useChatThread()
   const {
     chats,
@@ -81,21 +87,10 @@ export function BoloScreen() {
     messages,
     thread,
     lastId,
-    show,
   } = chat
   useLanguageOffer(chat.landed)
-  // Show a finished message in its chat, then play its reply.
-  const onDone = React.useCallback(
-    (c: VoiceCommand) => {
-      show(c)
-      autoplay(c)
-    },
-    [show, autoplay]
-  )
-  const command = useCommand({ chat: chat.current, onDone })
   const { phase, mode, ticks, error, sentText, busy, sendText, cancel } =
     command
-  const mic = useRecorder(command)
 
   // Follow the conversation: the newest message, and the words of the one in flight as they arrive.
   React.useEffect(() => {
@@ -582,21 +577,6 @@ function Greeting() {
   )
 }
 
-/** Time since recording started, as 0:07. */
-function Elapsed() {
-  const [start] = React.useState(() => Date.now())
-  const [now, setNow] = React.useState(start)
-  React.useEffect(() => {
-    const tick = window.setInterval(() => setNow(Date.now()), 250)
-    return () => window.clearInterval(tick)
-  }, [])
-  const s = Math.floor((now - start) / 1000)
-  return (
-    <span className="w-9 shrink-0 text-sm text-black/60 tabular-nums">
-      {Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}
-    </span>
-  )
-}
 
 /** "1:42 mein jawab dijiye", counting down to the question's expiry. */
 function Countdown({ until }: { until: string }) {
