@@ -579,8 +579,7 @@ function StaffLedger({ person }: { person: Party }) {
                 {x.day}
               </span>
             )
-            const editable =
-              x.iso >= editFrom() && x.mark !== "future"
+            const editable = x.iso >= editFrom() && x.mark !== "future"
             return editable ? (
               <DayMenu
                 key={x.day}
@@ -1334,9 +1333,11 @@ function PayForm({
   const [busy, setBusy] = React.useState(false)
   const left = salaryLeft(person)
   const earnedDue = Math.max(0, Math.min(left, person.staff_due?.due ?? 0))
-  const val = Math.max(0, Math.round(Number(amount) || 0))
-  const over = val > left
   const advance = kind === "STAFF_ADVANCE"
+  const cap = advance ? left : earnedDue
+  const refusal = advance ? "error.EXCEEDS_SALARY" : "error.EXCEEDS_EARNED"
+  const val = Math.max(0, Math.round(Number(amount) || 0))
+  const over = val > cap
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -1350,7 +1351,7 @@ function PayForm({
       )
       onDone()
     } catch (err) {
-      setError(errorText(err, t, { amount: inr(left) }))
+      setError(errorText(err, t, { amount: inr(cap) }))
     } finally {
       setBusy(false)
     }
@@ -1390,7 +1391,7 @@ function PayForm({
             type="number"
             required
             min={1}
-            max={Math.max(1, left)}
+            max={Math.max(1, cap)}
             step={1}
             inputMode="numeric"
             autoFocus
@@ -1430,11 +1431,11 @@ function PayForm({
         )}
       >
         {over ? (
-          t("error.EXCEEDS_SALARY", { amount: inr(left) })
+          t(refusal, { amount: inr(cap) })
         ) : (
           <>
             <span>{t("staff.leftAfter")}</span>
-            <span className="text-foreground">{inr(left - val)}</span>
+            <span className="text-foreground">{inr(cap - val)}</span>
           </>
         )}
       </p>
