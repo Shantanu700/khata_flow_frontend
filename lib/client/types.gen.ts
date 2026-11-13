@@ -438,6 +438,10 @@ export type StaffDueFields = {
     earned: number;
     advances: number;
     salary_paid: number;
+    /**
+     * Advance from earlier months not yet covered by earnings.
+     */
+    carried: number;
     due: number;
 };
 
@@ -451,6 +455,10 @@ export type StaffMonth = {
     earned: number;
     advances: number;
     salary_paid: number;
+    /**
+     * Advance from earlier months not yet covered by earnings.
+     */
+    carried: number;
     due: number;
     monthly_salary: number | null;
     present_days: Array<string>;
