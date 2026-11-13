@@ -9,13 +9,14 @@ import { isoDay, type VoiceCommand } from "@/lib/api"
 
 /** The chat list and the open chat's thread, with a just-finished message shown at once while the chat refetches. */
 export function useChatThread() {
-  const { chatId, setChatId } = useShell()
+  const { chatId, setChatId, voice } = useShell()
   const [page, setPage] = React.useState(1)
   const chats = useChats(page)
   const pages = pagesOf(chats.data?.count, SIZE.table)
   const openId = chatId ?? null
   const messages = useChatMessages(openId)
-  const [landed, setLanded] = React.useState<VoiceCommand | null>(null)
+  const landed = voice?.landed ?? null
+  const setLanded = voice?.setLanded
   // Sends read the open chat here, so the header's hand-off never sends into a chat closed meanwhile.
   const chatRef = React.useRef(openId)
   React.useEffect(() => {
@@ -48,16 +49,16 @@ export function useChatThread() {
 
   const show = React.useCallback(
     (c: VoiceCommand) => {
-      setLanded(c)
+      setLanded?.(c)
       if (c.chat !== null) setChatId(c.chat)
     },
-    [setChatId]
+    [setChatId, setLanded]
   )
 
   /** Open a chat, or none (null) so the next message starts one. */
   const open = (id: number | null) => {
     setChatId(id)
-    setLanded(null)
+    setLanded?.(null)
   }
 
   // The chat list under Today, Yesterday and dated headings, newest first as it comes.

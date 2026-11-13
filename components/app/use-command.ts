@@ -3,7 +3,7 @@
 import * as React from "react"
 
 import { useI18n } from "@/components/app/i18n"
-import { useShell } from "@/components/app/shell"
+import { ShellContext } from "@/components/app/shell"
 import {
   apiProgress,
   postV1VoiceCommands,
@@ -24,12 +24,17 @@ export type Job = { abort: AbortController; id?: number; cancelled?: boolean }
 export function useCommand({
   chat,
   onDone,
+  run: runProp,
 }: {
   chat: () => number | null
   onDone: (c: VoiceCommand) => void
+  run?: <R>(fn: () => Promise<R>) => Promise<R>
 }) {
   const { t, code } = useI18n()
-  const { run, said, setSaid } = useShell()
+  const shell = React.useContext(ShellContext)
+  const run = runProp ?? shell?.run
+  const said = shell?.said
+  const setSaid = shell?.setSaid
   const [phase, setPhase] = React.useState<Phase>("idle")
   // Stages the server has reported finished for the message in flight (timings_ms keys → ms).
   const [ticks, setTicks] = React.useState<Record<string, number>>({})
@@ -60,10 +65,14 @@ export function useCommand({
 
   // The server reverses anything the message already wrote; only then stop reading its stream.
   const drop = React.useCallback(
-    (mine: Job) =>
-      run(() => postV1VoiceCommandsCancel({ path: { id: mine.id! } }))
+    (mine: Job) => {
+      const runner = run
+        ? run(() => postV1VoiceCommandsCancel({ path: { id: mine.id! } }))
+        : postV1VoiceCommandsCancel({ path: { id: mine.id! } })
+      return runner
         .catch(() => setError(t("error.generic")))
-        .finally(() => mine.abort.abort()),
+        .finally(() => mine.abort.abort())
+    },
     [run, t]
   )
 
@@ -81,7 +90,10 @@ export function useCommand({
         },
       }
       try {
-        const done = await run(() => call(progress))
+        const caller = run
+          ? () => run(() => call(progress))
+          : () => call(progress)
+        const done = await caller()
         if (!mine.cancelled) land(done)
       } catch {
         if (mine.cancelled) return
@@ -148,7 +160,7 @@ export function useCommand({
 
   // Text typed in the header's box arrives here, into the open chat.
   React.useEffect(() => {
-    if (!said) return
+    if (!said || !setSaid) return
     // After the effect, not inside it: sending sets this screen's state. Only the effect still standing sends,
     // or a remount (Strict Mode mounts twice) would send the message twice.
     let current = true

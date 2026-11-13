@@ -218,3 +218,25 @@ export function Swap({
     </span>
   )
 }
+
+/** Time since recording started, as 0:07. */
+export function Elapsed({ className }: { className?: string }) {
+  const [start] = React.useState(() => Date.now())
+  const [now, setNow] = React.useState(start)
+  React.useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 250)
+    return () => window.clearInterval(tick)
+  }, [])
+  const s = Math.floor((now - start) / 1000)
+  return (
+    <span
+      className={cn(
+        "w-9 shrink-0 text-sm text-black/60 tabular-nums",
+        className
+      )}
+    >
+      {Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}
+    </span>
+  )
+}
+

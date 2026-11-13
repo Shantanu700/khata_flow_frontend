@@ -23,6 +23,7 @@ import {
   ArrowIcon,
   BellIcon,
   LogoMark,
+  MicIcon,
   MoonIcon,
   SunIcon,
 } from "@/components/app/icons"
@@ -43,8 +44,13 @@ import { StaffScreen } from "@/components/app/staff"
 import { StockScreen } from "@/components/app/stock"
 import { useTheme } from "@/components/app/theme"
 import { useScreenMorph } from "@/components/app/use-screen-morph"
-import { Tip } from "@/components/app/parts"
-import { ApiError, SIGNED_OUT, data, getV1I18N, type Me } from "@/lib/api"
+import { Elapsed, Tip } from "@/components/app/parts"
+import { Waveform } from "@/components/app/waveform"
+import { useCommand } from "@/components/app/use-command"
+import { useRecorder } from "@/components/app/use-recorder"
+import { useReplyAudio } from "@/components/app/use-reply-audio"
+import { toast } from "sonner"
+import { ApiError, SIGNED_OUT, data, getV1I18N, type Me, type VoiceCommand } from "@/lib/api"
 import { reduceMotion } from "@/lib/motion"
 import { ProgressBar } from "@/components/app/progress-bar"
 import { cn } from "@/lib/utils"
@@ -257,6 +263,56 @@ function App({ me }: { me: Me }) {
     [client, code, freezeRolls, rollTexts]
   )
 
+  const replyAudio = useReplyAudio()
+  const [landed, setLanded] = React.useState<VoiceCommand | null>(null)
+  const chatRef = React.useRef(chatId ?? null)
+  React.useEffect(() => {
+    chatRef.current = chatId ?? null
+  }, [chatId])
+
+  const onDone = React.useCallback(
+    (c: VoiceCommand) => {
+      setLanded(c)
+      if (c.chat !== null) setChatId(c.chat)
+      replyAudio.autoplay(c)
+    },
+    [replyAudio, setChatId]
+  )
+
+  const command = useCommand({
+    chat: () => chatRef.current,
+    onDone,
+    run,
+  })
+
+  const mic = useRecorder(command)
+
+  const screenRef = React.useRef(screen)
+  React.useEffect(() => {
+    screenRef.current = screen
+  }, [screen])
+
+  React.useEffect(() => {
+    if (command.phase === "working" && screenRef.current !== "bolo") {
+      go("bolo")
+    }
+  }, [command.phase, go])
+
+  React.useEffect(() => {
+    if (command.error) toast.error(command.error)
+  }, [command.error])
+
+  const voice = React.useMemo(
+    () => ({
+      command,
+      mic,
+      replyAudio,
+      landed,
+      setLanded,
+    }),
+    [command, mic, replyAudio, landed]
+  )
+
   const shell = React.useMemo(
     () => ({
       go,
@@ -269,8 +325,9 @@ function App({ me }: { me: Me }) {
       chatId,
       setChatId,
       setLanguage,
+      voice,
     }),
-    [go, run, customerId, said, chatId, setLanguage]
+    [go, run, customerId, said, chatId, setLanguage, voice]
   )
 
   const { phone, narrow, compact } = layout
@@ -348,46 +405,96 @@ function App({ me }: { me: Me }) {
                       "say"
                     ) as HTMLInputElement
                     const text = box.value.trim()
-                    if (!text) return
-                    setSaid(text)
+                    if (!text || command.busy) return
                     box.value = ""
+                    command.sendText(text)
                     go("bolo")
                   }}
                   className={cn(
-                    "flex items-center gap-[10px] rounded-full bg-white py-1.5 pr-1.5 pl-5 text-black",
+                    "flex items-center gap-[10px] rounded-full bg-white py-1.5 pr-1.5 pl-5 text-black transition-[width,flex-grow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                     narrow ? "order-last basis-full" : "min-w-[320px] flex-1"
                   )}
                 >
-                  {!phone && (
-                    <span className="max-w-[220px] truncate text-sm font-medium whitespace-nowrap">
-                      {shop}
-                    </span>
+                  {command.phase === "listening" ? (
+                    <div className="flex size-full animate-in items-center gap-4 duration-300 fade-in-0">
+                      <Elapsed />
+                      <Waveform
+                        levels={mic.levels}
+                        className="h-7 min-w-0 flex-1 text-black"
+                      />
+                      <Tip label={t("bolo.stop")}>
+                        <button
+                          type="button"
+                          aria-label={t("bolo.stop")}
+                          onClick={() => {
+                            mic.stop()
+                            if (screen !== "bolo") go("bolo")
+                          }}
+                          className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black transition-transform duration-150 active:scale-[0.92]"
+                        >
+                          <span className="size-3 rounded-[3px] bg-lime" />
+                        </button>
+                      </Tip>
+                    </div>
+                  ) : (
+                    <>
+                      {!phone && (
+                        <span className="max-w-[220px] truncate text-sm font-medium whitespace-nowrap">
+                          {shop}
+                        </span>
+                      )}
+                      {!compact && (
+                        <span className="rounded-full bg-[#e5e5e5] px-3.5 py-2 text-[13px] whitespace-nowrap">
+                          {today.toLocaleDateString(locale, {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </span>
+                      )}
+                      <input
+                        name="say"
+                        aria-label={t("header.sayLabel")}
+                        placeholder={t("header.sayPlaceholder")}
+                        maxLength={500}
+                        disabled={command.busy}
+                        className="h-10 min-w-0 flex-1 bg-transparent text-base text-black outline-none placeholder:text-black/50 disabled:opacity-50 sm:text-sm"
+                      />
+                      {command.phase === "working" ? (
+                        <div
+                          role="img"
+                          aria-label={t("bolo.working")}
+                          className="kf-ai-ring relative isolate grid size-11 shrink-0 place-items-center rounded-full p-[2px]"
+                        >
+                          <div className="grid size-full place-items-center rounded-full bg-deep text-white">
+                            <MicIcon size={18} stroke={1.7} />
+                          </div>
+                        </div>
+                      ) : (
+                        <Tip label={t("bolo.press")}>
+                          <button
+                            type="button"
+                            aria-label={t("bolo.press")}
+                            disabled={command.busy}
+                            onClick={mic.listen}
+                            className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-lime text-black transition-transform duration-150 active:scale-[0.94] disabled:opacity-50"
+                          >
+                            <MicIcon size={20} stroke={1.7} />
+                          </button>
+                        </Tip>
+                      )}
+                      <Tip label={t("header.send")}>
+                        <button
+                          type="submit"
+                          disabled={command.busy}
+                          aria-label={t("header.send")}
+                          className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black text-white transition-transform duration-150 active:scale-[0.92] disabled:opacity-40"
+                        >
+                          <ArrowIcon size={16} />
+                        </button>
+                      </Tip>
+                    </>
                   )}
-                  {!compact && (
-                    <span className="rounded-full bg-[#e5e5e5] px-3.5 py-2 text-[13px] whitespace-nowrap">
-                      {today.toLocaleDateString(locale, {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </span>
-                  )}
-                  <input
-                    name="say"
-                    aria-label={t("header.sayLabel")}
-                    placeholder={t("header.sayPlaceholder")}
-                    maxLength={500}
-                    className="h-10 min-w-0 flex-1 bg-transparent text-base text-black outline-none placeholder:text-black/50 sm:text-sm"
-                  />
-                  <Tip label={t("header.send")}>
-                    <button
-                      type="submit"
-                      aria-label={t("header.send")}
-                      className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black text-white"
-                    >
-                      <ArrowIcon size={16} />
-                    </button>
-                  </Tip>
                 </form>
               )}
               <LanguagePicker
