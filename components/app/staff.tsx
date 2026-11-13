@@ -85,8 +85,15 @@ const salaryLeft = (p: Party) =>
     0,
     (p.monthly_salary ?? 0) -
       (p.staff_due?.advances ?? 0) -
-      (p.staff_due?.salary_paid ?? 0)
+      (p.staff_due?.salary_paid ?? 0) -
+      (p.staff_due?.carried ?? 0)
   )
+
+/** Earned this month less advance, salary paid and advance carried from earlier months; below zero the advance has outrun the earnings. */
+const dueOf = (p: Party) => p.staff_due?.due ?? 0
+const dueLabel = (due: number) =>
+  due < 0 ? "staff.overAdvance" : "staff.dueAfter"
+const OWES = "text-[var(--red-ink)]"
 
 const lastDays = (n: number) =>
   Array.from({ length: n }, (_, i) => {
@@ -243,11 +250,16 @@ export function StaffScreen() {
                   </span>
                 </span>
                 <span className="shrink-0 text-right">
-                  <span className="block text-[15px] font-light tabular-nums">
-                    {inr(salaryLeft(s))}
+                  <span
+                    className={cn(
+                      "block text-[15px] font-light tabular-nums",
+                      dueOf(s) < 0 && OWES
+                    )}
+                  >
+                    {inr(dueOf(s))}
                   </span>
                   <span className="block text-[11px] text-muted-foreground">
-                    {t("staff.left")}
+                    {t(dueLabel(dueOf(s)))}
                   </span>
                 </span>
               </div>
@@ -264,7 +276,7 @@ export function StaffScreen() {
               <span>{t("col.name")}</span>
               <span className="text-right">{t("staff.col.present")}</span>
               <span className="text-right">{t("staff.col.advance")}</span>
-              <span className="text-right">{t("staff.col.left")}</span>
+              <span className="text-right">{t("staff.col.due")}</span>
               <span />
             </div>
             {shown.map((s) => (
@@ -306,8 +318,15 @@ export function StaffScreen() {
                 <span className="text-right text-[15px] font-light tabular-nums">
                   {inr(s.staff_due?.advances)}
                 </span>
-                <span className="text-right text-[15px] font-light tabular-nums">
-                  {inr(salaryLeft(s))}
+                <span
+                  title={dueOf(s) < 0 ? t("staff.overAdvance") : undefined}
+                  className={cn(
+                    "text-right text-[15px] font-light tabular-nums",
+                    dueOf(s) < 0 && OWES
+                  )}
+                >
+                  {dueOf(s) < 0 && "−"}
+                  {inr(dueOf(s))}
                 </span>
                 <Tip label={t("stock.edit", { name: s.name })}>
                   <button
@@ -531,11 +550,7 @@ function StaffLedger({ person }: { person: Party }) {
         />
         <Tile value={inr(s?.advances)} label={t("staff.advanceMonth")} raised />
         <Tile value={inr(s?.earned)} label={t("staff.earned")} raised />
-        <Tile
-          value={inr(Math.max(0, s?.due ?? 0))}
-          label={t("staff.dueAfter")}
-          paper
-        />
+        <Tile value={inr(s?.due)} label={t(dueLabel(s?.due ?? 0))} paper />
       </div>
 
       <section
@@ -579,8 +594,7 @@ function StaffLedger({ person }: { person: Party }) {
                 {x.day}
               </span>
             )
-            const editable =
-              x.iso >= editFrom() && x.mark !== "future"
+            const editable = x.iso >= editFrom() && x.mark !== "future"
             return editable ? (
               <DayMenu
                 key={x.day}
@@ -821,6 +835,7 @@ function StaffCard({
   const half = new Set(s.half_days_14d ?? [])
   const setDay = useSetDay()
   const left = salaryLeft(s)
+  const due = dueOf(s)
   const salary = s.monthly_salary ?? 0
   const advances = s.staff_due?.advances ?? 0
   const paid = s.staff_due?.salary_paid ?? 0
@@ -891,10 +906,11 @@ function StaffCard({
                   "leading-none font-light whitespace-nowrap",
                   phone
                     ? "text-[clamp(36px,11.5vw,48px)]"
-                    : "text-[clamp(26px,2.4vw,32px)] tall:text-[clamp(32px,3vw,46px)]"
+                    : "text-[clamp(26px,2.4vw,32px)] tall:text-[clamp(32px,3vw,46px)]",
+                  due < 0 && OWES
                 )}
               >
-                {inr(left)}
+                {inr(due)}
               </span>
               <span
                 className={cn(
@@ -902,7 +918,7 @@ function StaffCard({
                   phone ? "text-base leading-none" : "text-xs tall:text-sm"
                 )}
               >
-                {t("staff.leftShort")}
+                {t(dueLabel(due))}
               </span>
             </p>
             <span
@@ -1334,9 +1350,11 @@ function PayForm({
   const [busy, setBusy] = React.useState(false)
   const left = salaryLeft(person)
   const earnedDue = Math.max(0, Math.min(left, person.staff_due?.due ?? 0))
-  const val = Math.max(0, Math.round(Number(amount) || 0))
-  const over = val > left
   const advance = kind === "STAFF_ADVANCE"
+  const cap = advance ? left : earnedDue
+  const refusal = advance ? "error.EXCEEDS_SALARY" : "error.EXCEEDS_EARNED"
+  const val = Math.max(0, Math.round(Number(amount) || 0))
+  const over = val > cap
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -1350,7 +1368,7 @@ function PayForm({
       )
       onDone()
     } catch (err) {
-      setError(errorText(err, t, { amount: inr(left) }))
+      setError(errorText(err, t, { amount: inr(cap) }))
     } finally {
       setBusy(false)
     }
@@ -1390,7 +1408,7 @@ function PayForm({
             type="number"
             required
             min={1}
-            max={Math.max(1, left)}
+            max={Math.max(1, cap)}
             step={1}
             inputMode="numeric"
             autoFocus
@@ -1430,11 +1448,11 @@ function PayForm({
         )}
       >
         {over ? (
-          t("error.EXCEEDS_SALARY", { amount: inr(left) })
+          t(refusal, { amount: inr(cap) })
         ) : (
           <>
             <span>{t("staff.leftAfter")}</span>
-            <span className="text-foreground">{inr(left - val)}</span>
+            <span className="text-foreground">{inr(cap - val)}</span>
           </>
         )}
       </p>
