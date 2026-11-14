@@ -174,30 +174,32 @@ export function CommandPalette({
                   placeholder={t("palette.placeholder")}
                   className="h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-sm"
                 />
-                <Tip label={hint(t("bolo.press"), combo("M", true), phone)}>
-                  <button
-                    type="button"
-                    aria-label={t("bolo.press")}
-                    aria-keyshortcuts="Meta+Shift+M Control+Shift+M"
-                    disabled={busy}
-                    onClick={() => run(speak)}
-                    className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full bg-lime text-black transition-transform duration-150 active:scale-[0.94] disabled:opacity-50"
-                  >
-                    <MicIcon size={16} stroke={1.7} />
-                  </button>
-                </Tip>
-                <Tip label={hint(t("header.send"), combo("↵"), phone)}>
-                  <button
-                    type="button"
-                    aria-label={t("header.send")}
-                    aria-keyshortcuts="Meta+Enter Control+Enter"
-                    disabled={busy || !query}
-                    onClick={toChat}
-                    className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full bg-foreground text-background transition-transform duration-150 active:scale-[0.92] disabled:cursor-default disabled:opacity-40"
-                  >
-                    <ArrowIcon size={14} />
-                  </button>
-                </Tip>
+                <div className="flex shrink-0 gap-1.5">
+                  <Tip label={hint(t("bolo.press"), combo("M", true), phone)}>
+                    <button
+                      type="button"
+                      aria-label={t("bolo.press")}
+                      aria-keyshortcuts="Meta+Shift+M Control+Shift+M"
+                      disabled={busy}
+                      onClick={() => run(speak)}
+                      className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full bg-lime text-black transition-transform duration-150 active:scale-[0.94] disabled:opacity-50"
+                    >
+                      <MicIcon size={16} stroke={1.7} />
+                    </button>
+                  </Tip>
+                  <Tip label={hint(t("header.send"), combo("↵"), phone)}>
+                    <button
+                      type="button"
+                      aria-label={t("header.send")}
+                      aria-keyshortcuts="Meta+Enter Control+Enter"
+                      disabled={busy || !query}
+                      onClick={toChat}
+                      className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full bg-foreground text-background transition-transform duration-150 active:scale-[0.92] disabled:cursor-default disabled:opacity-40"
+                    >
+                      <ArrowIcon size={14} />
+                    </button>
+                  </Tip>
+                </div>
               </label>
             </div>
             <Command.List className="h-(--cmdk-list-height) max-h-[min(380px,55dvh)] scroll-py-1.5 overflow-y-auto overscroll-contain transition-[height] duration-200 ease-out motion-reduce:transition-none">

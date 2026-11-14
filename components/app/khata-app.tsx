@@ -511,41 +511,48 @@ function App({ me }: { me: Me }) {
                           {shortcut()}
                         </button>
                       )}
-                      {command.phase === "working" ? (
-                        <div
-                          role="img"
-                          aria-label={t("bolo.working")}
-                          className="kf-ai-ring relative isolate grid size-11 shrink-0 place-items-center rounded-full p-[2px]"
-                        >
-                          <div className="grid size-full place-items-center rounded-full bg-deep text-white">
-                            <MicIcon size={18} stroke={1.7} />
-                          </div>
-                        </div>
-                      ) : (
-                        <Tip
-                          label={hint(t("bolo.press"), combo("M", true), phone)}
-                        >
-                          <button
-                            type="button"
-                            aria-label={t("bolo.press")}
-                            disabled={command.busy}
-                            onClick={mic.listen}
-                            className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-lime text-black transition-transform duration-150 active:scale-[0.94] disabled:opacity-50"
+                      {/* The pair sits as close as it sits to the pill's edge (6px), so it reads as one control. */}
+                      <div className="flex shrink-0 gap-1.5">
+                        {command.phase === "working" ? (
+                          <div
+                            role="img"
+                            aria-label={t("bolo.working")}
+                            className="kf-ai-ring relative isolate grid size-11 shrink-0 place-items-center rounded-full p-[2px]"
                           >
-                            <MicIcon size={20} stroke={1.7} />
+                            <div className="grid size-full place-items-center rounded-full bg-deep text-white">
+                              <MicIcon size={18} stroke={1.7} />
+                            </div>
+                          </div>
+                        ) : (
+                          <Tip
+                            label={hint(
+                              t("bolo.press"),
+                              combo("M", true),
+                              phone
+                            )}
+                          >
+                            <button
+                              type="button"
+                              aria-label={t("bolo.press")}
+                              disabled={command.busy}
+                              onClick={mic.listen}
+                              className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-lime text-black transition-transform duration-150 active:scale-[0.94] disabled:opacity-50"
+                            >
+                              <MicIcon size={20} stroke={1.7} />
+                            </button>
+                          </Tip>
+                        )}
+                        <Tip label={t("header.send")}>
+                          <button
+                            type="submit"
+                            disabled={command.busy}
+                            aria-label={t("header.send")}
+                            className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black text-white transition-transform duration-150 active:scale-[0.92] disabled:opacity-40"
+                          >
+                            <ArrowIcon size={16} />
                           </button>
                         </Tip>
-                      )}
-                      <Tip label={t("header.send")}>
-                        <button
-                          type="submit"
-                          disabled={command.busy}
-                          aria-label={t("header.send")}
-                          className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black text-white transition-transform duration-150 active:scale-[0.92] disabled:opacity-40"
-                        >
-                          <ArrowIcon size={16} />
-                        </button>
-                      </Tip>
+                      </div>
                     </>
                   )}
                 </form>
