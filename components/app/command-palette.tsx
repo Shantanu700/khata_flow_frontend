@@ -17,6 +17,7 @@ import {
 } from "@/components/app/icons"
 import type { Screen } from "@/components/app/khata-data"
 import { Face, photoSrc } from "@/components/app/photo"
+import { Tip } from "@/components/app/parts"
 import { NAV } from "@/components/app/rail"
 import {
   data,
@@ -36,7 +37,7 @@ const GROUP =
   "p-1.5 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground"
 
 /** ⌘K / Ctrl+K, or the search button: find a customer, staff member or item, jump to a screen, run an action,
- *  or type a sum (250*4+30) and press Enter to copy the answer. */
+ *  or type a sum (250*4+30) and press Enter to copy the answer. ⌘↵ sends the text to the chat; the mic speaks. */
 export function CommandPalette({
   open,
   onOpenChange,
@@ -46,6 +47,8 @@ export function CommandPalette({
   theme,
   toggleTheme,
   speak,
+  send,
+  busy,
   phone,
 }: {
   open: boolean
@@ -56,6 +59,8 @@ export function CommandPalette({
   theme: "dark" | "light"
   toggleTheme: () => void
   speak: () => void
+  send: (text: string) => void
+  busy: boolean
   phone: boolean
 }) {
   const { t } = useI18n()
@@ -92,6 +97,9 @@ export function CommandPalette({
   const run = (fn: () => void) => {
     openChange(false)
     fn()
+  }
+  const toChat = () => {
+    if (query && !busy) run(() => send(query))
   }
   const copy = async (value: number) => {
     const shown = value.toLocaleString("en-IN", { maximumFractionDigits: 2 })
@@ -151,9 +159,14 @@ export function CommandPalette({
             value={active}
             onValueChange={setPicked}
             label={t("palette.title")}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return
+              e.preventDefault()
+              toChat()
+            }}
           >
             <div className="p-2 pb-0">
-              <label className="flex h-12 items-center gap-3 rounded-full bg-raised pr-2 pl-5">
+              <label className="flex h-12 items-center gap-3 rounded-full bg-raised pr-1.5 pl-5">
                 <SearchIcon className="shrink-0 text-muted-foreground" />
                 <Command.Input
                   value={q}
@@ -161,6 +174,30 @@ export function CommandPalette({
                   placeholder={t("palette.placeholder")}
                   className="h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground sm:text-sm"
                 />
+                <Tip label={hint(t("bolo.press"), combo("M", true), phone)}>
+                  <button
+                    type="button"
+                    aria-label={t("bolo.press")}
+                    aria-keyshortcuts="Meta+Shift+M Control+Shift+M"
+                    disabled={busy}
+                    onClick={() => run(speak)}
+                    className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full bg-lime text-black transition-transform duration-150 active:scale-[0.94] disabled:opacity-50"
+                  >
+                    <MicIcon size={16} stroke={1.7} />
+                  </button>
+                </Tip>
+                <Tip label={hint(t("header.send"), combo("↵"), phone)}>
+                  <button
+                    type="button"
+                    aria-label={t("header.send")}
+                    aria-keyshortcuts="Meta+Enter Control+Enter"
+                    disabled={busy || !query}
+                    onClick={toChat}
+                    className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full bg-foreground text-background transition-transform duration-150 active:scale-[0.92] disabled:cursor-default disabled:opacity-40"
+                  >
+                    <ArrowIcon size={14} />
+                  </button>
+                </Tip>
               </label>
             </div>
             <Command.List className="h-(--cmdk-list-height) max-h-[min(380px,55dvh)] scroll-py-1.5 overflow-y-auto overscroll-contain transition-[height] duration-200 ease-out motion-reduce:transition-none">
@@ -294,12 +331,20 @@ export function CommandPalette({
               )}
             </Command.List>
             {!phone && (
-              <div className="flex items-center gap-4 border-t border-hairline/40 px-5 py-3 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3.5 border-t border-hairline/40 px-5 py-3 text-xs text-muted-foreground">
                 <span>
                   <Kbd>↵</Kbd>{" "}
                   {answer !== null
                     ? t("palette.hintCopy")
                     : t("palette.hintOpen")}
+                </span>
+                <span>
+                  <Kbd>{combo("↵")}</Kbd>{" "}
+                  <span className="lowercase">{t("header.send")}</span>
+                </span>
+                <span>
+                  <Kbd>{combo("M", true)}</Kbd>{" "}
+                  <span className="lowercase">{t("screen.bolo.title")}</span>
                 </span>
                 <span>
                   <Kbd>esc</Kbd> {t("palette.hintClose")}
@@ -316,12 +361,20 @@ export function CommandPalette({
   )
 }
 
-/** The palette's shortcut as this keyboard shows it. */
-export const shortcut = () =>
+const mac = () =>
   typeof navigator !== "undefined" &&
   /Mac|iPhone|iPad/.test(navigator.userAgent)
-    ? "⌘K"
-    : "Ctrl K"
+
+/** A ⌘ / Ctrl shortcut as this keyboard shows it: ⌘⇧M, or Ctrl Shift M. */
+export const combo = (key: string, shift = false) =>
+  mac() ? `⌘${shift ? "⇧" : ""}${key}` : `Ctrl ${shift ? "Shift " : ""}${key}`
+
+/** The palette's own shortcut. */
+export const shortcut = () => combo("K")
+
+/** A button's tooltip with its shortcut; phones have no keyboard to show it for. */
+export const hint = (label: string, keys: string, phone: boolean) =>
+  phone ? label : `${label} · ${keys}`
 
 function Kbd({
   children,

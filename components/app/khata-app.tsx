@@ -8,7 +8,12 @@ import {
 } from "@tanstack/react-query"
 
 import { BoloScreen } from "@/components/app/bolo"
-import { CommandPalette, shortcut } from "@/components/app/command-palette"
+import {
+  CommandPalette,
+  combo,
+  hint,
+  shortcut,
+} from "@/components/app/command-palette"
 import { DashboardScreen } from "@/components/app/dashboard"
 import {
   keys,
@@ -211,17 +216,6 @@ function App({ me }: { me: Me }) {
     return () => window.removeEventListener("popstate", moved)
   }, [])
 
-  // ⌘K / Ctrl+K opens the palette from any screen, even while typing in a field.
-  React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "k" || !(e.metaKey || e.ctrlKey)) return
-      e.preventDefault()
-      setPalette((o) => !o)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [])
-
   // Writes in flight, for the top progress bar (reads it gets from React Query).
   const [saving, setSaving] = React.useState(0)
   const run = React.useCallback(
@@ -307,6 +301,32 @@ function App({ me }: { me: Me }) {
   })
 
   const mic = useRecorder(command)
+
+  // From any screen, even while typing in a field: ⌘K / Ctrl+K opens the palette; ⌘⇧M / Ctrl+Shift+M starts
+  // speaking, and again stops and sends.
+  const keysRef = React.useRef({ command, mic, go })
+  React.useEffect(() => {
+    keysRef.current = { command, mic, go }
+  })
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      if (e.key.toLowerCase() === "k" && !e.shiftKey) {
+        e.preventDefault()
+        setPalette((o) => !o)
+      } else if (e.code === "KeyM" && e.shiftKey) {
+        e.preventDefault()
+        setPalette(false)
+        const { command, mic, go } = keysRef.current
+        if (command.phase === "listening") {
+          mic.stop()
+          go("bolo")
+        } else if (!command.busy) mic.listen()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
 
   const screenRef = React.useRef(screen)
   React.useEffect(() => {
@@ -502,7 +522,9 @@ function App({ me }: { me: Me }) {
                           </div>
                         </div>
                       ) : (
-                        <Tip label={t("bolo.press")}>
+                        <Tip
+                          label={hint(t("bolo.press"), combo("M", true), phone)}
+                        >
                           <button
                             type="button"
                             aria-label={t("bolo.press")}
@@ -610,6 +632,11 @@ function App({ me }: { me: Me }) {
           theme={theme}
           toggleTheme={toggleTheme}
           speak={() => !command.busy && mic.listen()}
+          send={(text) => {
+            command.sendText(text)
+            go("bolo")
+          }}
+          busy={command.busy}
           phone={phone}
         />
       </ShellContext>
