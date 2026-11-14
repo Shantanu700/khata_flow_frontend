@@ -1,6 +1,13 @@
 "use client"
 
 import * as React from "react"
+import {
+  CameraIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+  UserRoundIcon,
+} from "lucide-react"
 import { Dialog } from "radix-ui"
 import { toast } from "sonner"
 
@@ -93,7 +100,7 @@ export async function savePartyPhoto(id: number, change: PhotoChange) {
   return saved as Promise<Party>
 }
 
-/** Optional photo for a form: a round preview with Add / Change and Remove. */
+/** Optional photo for a form: tap or drop on the round preview to add or change it. */
 export function PhotoField({
   name,
   src,
@@ -107,6 +114,7 @@ export function PhotoField({
 }) {
   const { t } = useI18n()
   const [error, setError] = React.useState("")
+  const [over, setOver] = React.useState(false)
   const input = React.useRef<HTMLInputElement>(null)
   const preview = React.useMemo(
     () => (change ? URL.createObjectURL(change) : null),
@@ -119,6 +127,7 @@ export function PhotoField({
     [preview]
   )
   const shown = change === null ? null : (preview ?? src)
+  const label = shown ? t("photo.change") : t("photo.add")
 
   const pick = async (file: File | undefined) => {
     if (!file) return
@@ -132,34 +141,74 @@ export function PhotoField({
 
   return (
     <div className="flex items-center gap-4">
-      <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-full bg-raised text-2xl">
-        <Face name={name || "?"} src={shown} />
-      </span>
-      <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={() => input.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault()
+          setOver(true)
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setOver(false)
+          void pick(e.dataTransfer.files[0])
+        }}
+        className={cn(
+          "group relative size-20 shrink-0 cursor-pointer rounded-full outline-2 outline-offset-[3px] transition-[outline-color,transform] duration-150 focus-visible:outline-lime active:scale-[0.97]",
+          shown
+            ? "outline-transparent"
+            : "outline-hairline outline-dashed hover:outline-lime",
+          over && "outline-lime outline-solid"
+        )}
+      >
+        <span className="grid size-full place-items-center overflow-hidden rounded-full bg-raised text-3xl font-light">
+          {shown || name ? (
+            <Face name={name} src={shown} />
+          ) : (
+            <UserRoundIcon className="size-8 text-muted-foreground" />
+          )}
+          {shown && (
+            <span className="absolute inset-0 grid place-items-center rounded-full bg-black/45 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              <CameraIcon className="size-6 text-white" />
+            </span>
+          )}
+        </span>
+        <span className="absolute -right-0.5 -bottom-0.5 grid size-7 place-items-center rounded-full border-[3px] border-card bg-lime text-black">
+          {shown ? (
+            <PencilIcon className="size-3" />
+          ) : (
+            <PlusIcon className="size-3.5" strokeWidth={2.5} />
+          )}
+        </span>
+      </button>
+      <div className="flex min-w-0 flex-col items-start gap-0.5">
         <button
           type="button"
           onClick={() => input.current?.click()}
-          className="h-10 cursor-pointer rounded-full bg-raised px-4 text-sm transition-transform duration-150 active:scale-[0.97]"
+          className="cursor-pointer text-sm font-medium transition-colors hover:text-lime-ink"
         >
-          {shown ? t("photo.change") : t("photo.add")}
+          {label}
         </button>
-        {shown && (
-          <button
-            type="button"
-            onClick={() => onChange(src ? null : undefined)}
-            className="h-10 cursor-pointer rounded-full px-3 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {t("photo.remove")}
-          </button>
-        )}
         <span
           className={cn(
-            "basis-full px-1 text-xs",
+            "text-xs",
             error ? "text-[var(--red-ink)]" : "text-muted-foreground"
           )}
         >
           {error || t("photo.optional")}
         </span>
+        {shown && (
+          <button
+            type="button"
+            onClick={() => onChange(src ? null : undefined)}
+            className="mt-1 flex cursor-pointer items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-[var(--red-ink)]"
+          >
+            <Trash2Icon className="size-3.5" />
+            {t("photo.remove")}
+          </button>
+        )}
       </div>
       <input
         ref={input}
