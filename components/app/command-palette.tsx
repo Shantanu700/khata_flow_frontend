@@ -132,9 +132,6 @@ export function CommandPalette({
     ...actions.map((a) => `action-${a.id}`),
   ]
   const active = rows.includes(picked) ? picked : (rows[0] ?? "")
-  const mac =
-    typeof navigator !== "undefined" &&
-    /Mac|iPhone|iPad/.test(navigator.userAgent)
 
   return (
     <Dialog.Root open={open} onOpenChange={openChange}>
@@ -308,7 +305,7 @@ export function CommandPalette({
                   <Kbd>esc</Kbd> {t("palette.hintClose")}
                 </span>
                 <span className="ml-auto">
-                  <Kbd>{mac ? "⌘K" : "Ctrl K"}</Kbd> {t("palette.hintAnywhere")}
+                  <Kbd>{shortcut()}</Kbd> {t("palette.hintAnywhere")}
                 </span>
               </div>
             )}
@@ -318,6 +315,13 @@ export function CommandPalette({
     </Dialog.Root>
   )
 }
+
+/** The palette's shortcut as this keyboard shows it. */
+export const shortcut = () =>
+  typeof navigator !== "undefined" &&
+  /Mac|iPhone|iPad/.test(navigator.userAgent)
+    ? "⌘K"
+    : "Ctrl K"
 
 function Kbd({
   children,

@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-query"
 
 import { BoloScreen } from "@/components/app/bolo"
-import { CommandPalette } from "@/components/app/command-palette"
+import { CommandPalette, shortcut } from "@/components/app/command-palette"
 import { DashboardScreen } from "@/components/app/dashboard"
 import {
   keys,
@@ -481,6 +481,16 @@ function App({ me }: { me: Me }) {
                         disabled={command.busy}
                         className="h-10 min-w-0 flex-1 bg-transparent text-base text-black outline-none placeholder:text-black/50 disabled:opacity-50 sm:text-sm"
                       />
+                      {!phone && (
+                        <button
+                          type="button"
+                          aria-label={t("palette.open")}
+                          onClick={() => setPalette(true)}
+                          className="shrink-0 cursor-pointer rounded-md bg-black/5 px-1.5 py-0.5 text-[11px] whitespace-nowrap text-black/60 transition-colors hover:bg-black/10 hover:text-black"
+                        >
+                          {shortcut()}
+                        </button>
+                      )}
                       {command.phase === "working" ? (
                         <div
                           role="img"
