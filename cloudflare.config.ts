@@ -2,7 +2,7 @@ import { bindings, defineConfig, defineWorker } from "cf/config"
 
 export default defineConfig({
   worker: defineWorker({
-    name: "khataflow",
+    name: "app",
     entrypoint: "vinext/server/fetch-handler",
     compatibilityDate: "2026-11-14",
     // lib/session.ts reads the API address from process.env, which nodejs_compat fills from env below.
