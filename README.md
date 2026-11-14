@@ -65,7 +65,7 @@ The production build uses [vinext](https://github.com/cloudflare/vinext), Cloudf
 
 ```bash
 npx cf auth login          # once per machine
-bun run deploy:vinext      # builds and deploys the `khataflow` Worker
+bun run deploy:vinext      # builds and deploys the `app` Worker: https://app.khataflow.workers.dev
 ```
 
 - The API address is `KHATAFLOW_API_URL` in `cloudflare.config.ts` (the Render service). Change it there and redeploy.
