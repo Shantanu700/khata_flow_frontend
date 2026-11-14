@@ -558,14 +558,14 @@ export function CornerPager({
 export const FIELD =
   "h-[52px] rounded-full bg-raised px-5 text-base outline-none [appearance:textfield] focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-inner-spin-button]:appearance-none"
 
-const BTN = 44
+export const BTN = 44
 const GAP = 8
 const R = (BTN + GAP) / 2
 const S = BTN + GAP
 const solid = "linear-gradient(#000,#000)"
 const fillet = `radial-gradient(circle at 0 100%, transparent ${R - 0.5}px, #000 ${R}px)`
 // Notch's shape as a real cut-out (the overlay behind a modal is see-through, so a painted notch can't match it): layer 1 minus the rest.
-const NOTCH_MASK: React.CSSProperties = {
+export const NOTCH_MASK: React.CSSProperties = {
   maskImage: [
     solid,
     solid,
