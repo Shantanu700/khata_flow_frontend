@@ -868,12 +868,14 @@ function StaffCard({
     <div
       className={cn(
         "relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]",
-        // Outside compact layouts the grid sets the card's height, so the card is a size container: --u grows
-        // −30 → 326px as the card goes from 210 to 566px high, and every size below scales with it, so the content
-        // fills the card at any height. Compact cards size to their content: small, or large on tall screens.
+        // Outside compact layouts the grid sets the card's size, so the card is a size container. --u grows
+        // −30 → 326px as the card goes from 210 to 566px high and every vertical size scales with it, so the content
+        // fills the card. --w is --u capped by width, for the money row only: it needs ~508px + 0.88·w on one line
+        // ("advance more than earned" and both tiles), so a narrow card keeps that row smaller instead of wrapping it.
+        // Compact cards size to their content: small, or large on tall screens.
         compact
-          ? "[--u:0px] tall:[--u:106px]"
-          : "[container-type:size] [--u:clamp(-30px,100cqh-240px,326px)]"
+          ? "[--u:0px] [--w:0px] tall:[--u:106px] tall:[--w:106px]"
+          : "[container-type:size] [--u:clamp(-30px,100cqh-240px,326px)] [--w:clamp(-30px,min(100cqh-240px,(100cqw-556px)*0.97),326px)]"
       )}
     >
       <div
@@ -916,13 +918,15 @@ function StaffCard({
           <div
             className={cn(
               "flex items-center gap-x-4 gap-y-2",
-              phone ? "justify-between" : "flex-wrap"
+              // One line when the grid fixes the card's height (sizes follow it, see --u): a narrower card shortens
+              // the labels (full text on hover) instead of adding a line. Compact cards grow, so there it may wrap.
+              phone ? "justify-between" : compact ? "flex-wrap" : "min-w-0"
             )}
           >
             <p
               className={cn(
                 "flex",
-                phone ? "flex-col" : "items-baseline gap-2"
+                phone ? "flex-col" : "min-w-0 shrink items-baseline gap-2"
               )}
             >
               <span
@@ -931,22 +935,24 @@ function StaffCard({
                   "leading-none font-light whitespace-nowrap",
                   phone
                     ? "text-[clamp(36px,11.5vw,48px)]"
-                    : "text-[calc(clamp(26px,2.4vw,32px)+var(--u)*0.13)]",
+                    : "text-[calc(clamp(26px,2.4vw,32px)+var(--w)*0.13)]",
                   due < 0 && OWES
                 )}
               >
                 {inr(due)}
               </span>
-              <span
-                className={cn(
-                  "text-muted-foreground",
-                  phone
-                    ? "text-base leading-none"
-                    : "text-[calc(12px+var(--u)*0.0189)]"
-                )}
-              >
-                {t(dueLabel(due))}
-              </span>
+              <Tip label={t(dueLabel(due))}>
+                <span
+                  className={cn(
+                    "text-muted-foreground",
+                    phone
+                      ? "text-base leading-none"
+                      : "relative z-10 min-w-0 truncate text-[calc(12px+var(--w)*0.0189)]"
+                  )}
+                >
+                  {t(dueLabel(due))}
+                </span>
+              </Tip>
             </p>
             <span
               className={cn(
@@ -1138,34 +1144,37 @@ function Given({
   roll: string
 }) {
   return (
-    <span
-      className={cn(
-        "flex items-center gap-2.5",
-        !bare && "border-l border-line pl-4"
-      )}
-    >
+    <Tip label={`${value} · ${label}`}>
       <span
-        aria-hidden
-        className="grid size-[calc(32px+var(--u)*0.0755)] shrink-0 place-items-center rounded-xl"
-        style={{
-          color,
-          background: `color-mix(in oklch, ${color} 18%, transparent)`,
-        }}
+        className={cn(
+          // Above the name button's card-wide overlay, so hovering shows the full label.
+          "relative z-10 flex min-w-0 items-center gap-2.5",
+          !bare && "shrink border-l border-line pl-4"
+        )}
       >
-        {icon}
-      </span>
-      <span className="leading-tight">
         <span
-          data-roll={roll}
-          className="block text-[calc(14px+var(--u)*0.0189)] tabular-nums"
+          aria-hidden
+          className="grid size-[calc(32px+var(--w)*0.0755)] shrink-0 place-items-center rounded-xl"
+          style={{
+            color,
+            background: `color-mix(in oklch, ${color} 18%, transparent)`,
+          }}
         >
-          {value}
+          {icon}
         </span>
-        <span className="block text-[calc(12px+var(--u)*0.0189)] text-muted-foreground">
-          {label}
+        <span className="min-w-0 leading-tight">
+          <span
+            data-roll={roll}
+            className="block text-[calc(14px+var(--w)*0.0189)] whitespace-nowrap tabular-nums"
+          >
+            {value}
+          </span>
+          <span className="block truncate text-[calc(12px+var(--w)*0.0189)] text-muted-foreground">
+            {label}
+          </span>
         </span>
       </span>
-    </span>
+    </Tip>
   )
 }
 
