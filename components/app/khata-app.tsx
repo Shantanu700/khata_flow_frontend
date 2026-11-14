@@ -8,7 +8,12 @@ import {
 } from "@tanstack/react-query"
 
 import { BoloScreen } from "@/components/app/bolo"
-import { CommandPalette, shortcut } from "@/components/app/command-palette"
+import {
+  CommandPalette,
+  combo,
+  hint,
+  shortcut,
+} from "@/components/app/command-palette"
 import { DashboardScreen } from "@/components/app/dashboard"
 import {
   keys,
@@ -211,17 +216,6 @@ function App({ me }: { me: Me }) {
     return () => window.removeEventListener("popstate", moved)
   }, [])
 
-  // ⌘K / Ctrl+K opens the palette from any screen, even while typing in a field.
-  React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "k" || !(e.metaKey || e.ctrlKey)) return
-      e.preventDefault()
-      setPalette((o) => !o)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [])
-
   // Writes in flight, for the top progress bar (reads it gets from React Query).
   const [saving, setSaving] = React.useState(0)
   const run = React.useCallback(
@@ -307,6 +301,32 @@ function App({ me }: { me: Me }) {
   })
 
   const mic = useRecorder(command)
+
+  // From any screen, even while typing in a field: ⌘K / Ctrl+K opens the palette; ⌘⇧M / Ctrl+Shift+M starts
+  // speaking, and again stops and sends.
+  const keysRef = React.useRef({ command, mic, go })
+  React.useEffect(() => {
+    keysRef.current = { command, mic, go }
+  })
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      if (e.key.toLowerCase() === "k" && !e.shiftKey) {
+        e.preventDefault()
+        setPalette((o) => !o)
+      } else if (e.code === "KeyM" && e.shiftKey) {
+        e.preventDefault()
+        setPalette(false)
+        const { command, mic, go } = keysRef.current
+        if (command.phase === "listening") {
+          mic.stop()
+          go("bolo")
+        } else if (!command.busy) mic.listen()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
 
   const screenRef = React.useRef(screen)
   React.useEffect(() => {
@@ -491,39 +511,48 @@ function App({ me }: { me: Me }) {
                           {shortcut()}
                         </button>
                       )}
-                      {command.phase === "working" ? (
-                        <div
-                          role="img"
-                          aria-label={t("bolo.working")}
-                          className="kf-ai-ring relative isolate grid size-11 shrink-0 place-items-center rounded-full p-[2px]"
-                        >
-                          <div className="grid size-full place-items-center rounded-full bg-deep text-white">
-                            <MicIcon size={18} stroke={1.7} />
-                          </div>
-                        </div>
-                      ) : (
-                        <Tip label={t("bolo.press")}>
-                          <button
-                            type="button"
-                            aria-label={t("bolo.press")}
-                            disabled={command.busy}
-                            onClick={mic.listen}
-                            className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-lime text-black transition-transform duration-150 active:scale-[0.94] disabled:opacity-50"
+                      {/* The pair sits as close as it sits to the pill's edge (6px), so it reads as one control. */}
+                      <div className="flex shrink-0 gap-1.5">
+                        {command.phase === "working" ? (
+                          <div
+                            role="img"
+                            aria-label={t("bolo.working")}
+                            className="kf-ai-ring relative isolate grid size-11 shrink-0 place-items-center rounded-full p-[2px]"
                           >
-                            <MicIcon size={20} stroke={1.7} />
+                            <div className="grid size-full place-items-center rounded-full bg-deep text-white">
+                              <MicIcon size={18} stroke={1.7} />
+                            </div>
+                          </div>
+                        ) : (
+                          <Tip
+                            label={hint(
+                              t("bolo.press"),
+                              combo("M", true),
+                              phone
+                            )}
+                          >
+                            <button
+                              type="button"
+                              aria-label={t("bolo.press")}
+                              disabled={command.busy}
+                              onClick={mic.listen}
+                              className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-lime text-black transition-transform duration-150 active:scale-[0.94] disabled:opacity-50"
+                            >
+                              <MicIcon size={20} stroke={1.7} />
+                            </button>
+                          </Tip>
+                        )}
+                        <Tip label={t("header.send")}>
+                          <button
+                            type="submit"
+                            disabled={command.busy}
+                            aria-label={t("header.send")}
+                            className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black text-white transition-transform duration-150 active:scale-[0.92] disabled:opacity-40"
+                          >
+                            <ArrowIcon size={16} />
                           </button>
                         </Tip>
-                      )}
-                      <Tip label={t("header.send")}>
-                        <button
-                          type="submit"
-                          disabled={command.busy}
-                          aria-label={t("header.send")}
-                          className="grid size-11 shrink-0 cursor-pointer place-items-center rounded-full bg-black text-white transition-transform duration-150 active:scale-[0.92] disabled:opacity-40"
-                        >
-                          <ArrowIcon size={16} />
-                        </button>
-                      </Tip>
+                      </div>
                     </>
                   )}
                 </form>
@@ -610,6 +639,11 @@ function App({ me }: { me: Me }) {
           theme={theme}
           toggleTheme={toggleTheme}
           speak={() => !command.busy && mic.listen()}
+          send={(text) => {
+            command.sendText(text)
+            go("bolo")
+          }}
+          busy={command.busy}
           phone={phone}
         />
       </ShellContext>
