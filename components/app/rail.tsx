@@ -24,7 +24,7 @@ import { reduceMotion } from "@/lib/motion"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
-const NAV: { screen: Screen; icon: typeof HomeIcon }[] = [
+export const NAV: { screen: Screen; icon: typeof HomeIcon }[] = [
   { screen: "dash", icon: HomeIcon },
   { screen: "khata", icon: BookIcon },
   { screen: "stock", icon: BoxIcon },
