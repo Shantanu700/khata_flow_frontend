@@ -868,12 +868,12 @@ function StaffCard({
     <div
       className={cn(
         "relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]",
-        // Outside compact layouts the grid sets the card's height, so the card is a size container and --u grows
-        // 0 → 106px as it goes from 240px to 346px high; every size below scales from its small to its large value,
-        // so the content always fills the card. Compact cards size to their content: small, or large on tall screens.
+        // Outside compact layouts the grid sets the card's height, so the card is a size container: --u grows
+        // −30 → 326px as the card goes from 210 to 566px high, and every size below scales with it, so the content
+        // fills the card at any height. Compact cards size to their content: small, or large on tall screens.
         compact
           ? "[--u:0px] tall:[--u:106px]"
-          : "[container-type:size] [--u:clamp(0px,100cqh-240px,106px)]"
+          : "[container-type:size] [--u:clamp(-30px,100cqh-240px,326px)]"
       )}
     >
       <div
