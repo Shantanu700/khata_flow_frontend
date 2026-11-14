@@ -109,8 +109,8 @@ export type EntryView = {
   tag: string
   canUndo: boolean
   running: string
-  /** the running balance is below zero: the customer has paid ahead */
-  advance: boolean
+  /** the running balance as a number (0 when there is none), for its sign */
+  balance: number
 }
 
 export function entryView(e: Entry, t: T, locale: string): EntryView {
@@ -141,7 +141,6 @@ export function entryView(e: Entry, t: T, locale: string): EntryView {
         : "",
     canUndo: !undo && !e.is_reversed,
     running: e.running_balance === null ? "" : inr(e.running_balance),
-    // Below zero the customer has paid ahead: shown as a green +₹.
-    advance: (e.running_balance ?? 0) < 0,
+    balance: e.running_balance ?? 0,
   }
 }

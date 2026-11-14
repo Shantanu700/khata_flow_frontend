@@ -385,16 +385,20 @@ export function KhataScreen() {
   )
 }
 
-/** A customer's advance (money paid ahead): a green +₹. */
-const Plus = ({ amount }: { amount: number }) => (
-  <span className="text-green-ink">+{inr(amount)}</span>
-)
+/** A customer's balance as a figure: −₹ in red when they owe the shop, +₹ in green when they paid ahead. */
+const Signed = ({ amount }: { amount: number }) =>
+  amount > 0 ? (
+    <span className="text-red-ink">−{inr(amount)}</span>
+  ) : amount < 0 ? (
+    <span className="text-green-ink">+{inr(amount)}</span>
+  ) : (
+    <>{inr(0)}</>
+  )
 
 /** What a customer owes, "Clear", or (below zero) what they paid ahead. */
 const balanceText = (c: Party, t: T) => {
   const b = c.balance ?? 0
-  if (b < 0) return <Plus amount={b} />
-  return b === 0 ? t("khata.clear") : inr(b)
+  return b === 0 ? t("khata.clear") : <Signed amount={b} />
 }
 
 function CustomerLedger({
@@ -600,7 +604,7 @@ function CustomerLedger({
               phone ? "text-5xl" : compact ? "text-[56px]" : "text-[64px]"
             )}
           >
-            {owed < 0 ? <Plus amount={owed} /> : inr(owed)}
+            <Signed amount={owed} />
           </p>
           {owed >= 0 && (
             <p className="mt-1.5 text-sm text-muted-foreground">
@@ -661,11 +665,7 @@ function CustomerLedger({
                   </span>
                   {e.running && (
                     <span className="block text-xs text-muted-foreground tabular-nums">
-                      {e.advance ? (
-                        <span className="text-green-ink">+{e.running}</span>
-                      ) : (
-                        t("khata.runningShort", { amount: e.running })
-                      )}
+                      <Signed amount={e.balance} />
                     </span>
                   )}
                 </span>
@@ -717,11 +717,7 @@ function CustomerLedger({
                   {e.amt}
                 </span>
                 <span className="text-right text-sm text-muted-foreground tabular-nums">
-                  {e.advance ? (
-                    <span className="text-green-ink">+{e.running}</span>
-                  ) : (
-                    e.running
-                  )}
+                  {e.running && <Signed amount={e.balance} />}
                 </span>
                 {e.canUndo ? (
                   <UndoButton
@@ -875,13 +871,7 @@ function EntryForm({
       >
         <span>{t("khata.newBalance")}</span>
         <span className="text-foreground">
-          {next > 0 ? (
-            inr(next)
-          ) : next < 0 ? (
-            <Plus amount={next} />
-          ) : (
-            t("khata.settledShort")
-          )}
+          {next === 0 ? t("khata.settledShort") : <Signed amount={next} />}
         </span>
       </p>
       <FormError error={error} />
