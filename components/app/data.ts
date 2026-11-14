@@ -33,9 +33,11 @@ import {
   putV1Parties,
   putV1PartiesAttendance,
   putV1Products,
+  isoDay,
   type Page,
   type Party,
   type Product,
+  type StaffMonth,
 } from "@/lib/api"
 import type {
   AttendanceRequest,
@@ -316,6 +318,65 @@ export const write = {
     ) as Promise<Party>,
   setLanguage: (code: string) =>
     data(putV1Me({ body: { shop: { preferred_language: code } } })),
+}
+
+/** Shows a day's attendance at once on every cached staff card and month calendar, before the server answers.
+ *  The write's refetch then confirms it (and the money figures); call the returned function to put the cache
+ *  back if the write is refused. */
+export function showDay(
+  client: QueryClient,
+  party: number,
+  on: string,
+  mark: DayMark
+) {
+  const lists = client.getQueriesData<Page<Party>>({ queryKey: ["staff"] })
+  const months = client.getQueriesData<StaffMonth>({
+    queryKey: ["staffMonth", party],
+  })
+  // A refetch already in flight would land after this and wipe the change.
+  void client.cancelQueries({ queryKey: ["staff"] })
+  void client.cancelQueries({ queryKey: ["staffMonth", party] })
+  const set = (days: string[] | null | undefined, has: boolean) => {
+    const rest = (days ?? []).filter((d) => d !== on)
+    return has ? [...rest, on].sort() : rest
+  }
+  const present = mark !== "absent"
+  const half = mark === "half"
+
+  for (const [key, page] of lists)
+    if (page)
+      client.setQueryData<Page<Party>>(key, {
+        ...page,
+        results: page.results.map((p) =>
+          p.id !== party
+            ? p
+            : {
+                ...p,
+                attendance_14d: set(p.attendance_14d, present),
+                half_days_14d: set(p.half_days_14d, half),
+                // Today's entry id, for undo; 0 stands in until the refetch brings the real one.
+                ...(on === isoDay() && {
+                  present_today: present ? (p.present_today ?? 0) : null,
+                }),
+              }
+        ),
+      })
+  for (const [key, month] of months)
+    if (month && on.startsWith(month.month.slice(0, 7))) {
+      const days = set(month.present_days, present)
+      const halves = set(month.half_days, half)
+      client.setQueryData<StaffMonth>(key, {
+        ...month,
+        present_days: days,
+        half_days: halves,
+        days_present: days.length - halves.length / 2,
+      })
+    }
+
+  return () => {
+    for (const [key, value] of [...lists, ...months])
+      client.setQueryData(key, value)
+  }
 }
 
 /** `value` once it has stopped changing for `ms` (search boxes query the server as you pause typing). */
