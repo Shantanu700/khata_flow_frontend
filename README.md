@@ -70,5 +70,5 @@ bun run deploy:vinext      # builds and deploys the `khataflow` Worker
 
 - The API address is `KHATAFLOW_API_URL` in `cloudflare.config.ts` (the Render service). Change it there and redeploy.
 - `bun run build:vinext && bun run start:vinext` runs the built Worker locally (port 4173 with `-- --port 4173`).
-- A vinext build rewrites `.next/types/routes.d.ts`; if `bun run typecheck` then complains about `.next/types`, run `bunx next typegen`.
+- A vinext build rewrites `.next/types/routes.d.ts`; `bun run typecheck` regenerates Next's own first.
 - Workers have no filesystem: read files with `import`, not `fs`.

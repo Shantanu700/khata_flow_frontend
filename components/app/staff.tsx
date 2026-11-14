@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { toast } from "sonner"
+import { useQueryClient } from "@tanstack/react-query"
 import { useGSAP } from "@gsap/react"
 import gsap from "gsap"
 import { Dialog, DropdownMenu } from "radix-ui"
@@ -20,6 +21,7 @@ import {
   useStaff,
   useStaffMonth,
   useStaffMoves,
+  showDay,
   useSummary,
   write,
   type DayMark,
@@ -135,20 +137,27 @@ export function StaffScreen() {
     0
   )
   const showOptions = SHOW.map((s) => ({ value: s.value, label: t(s.key) }))
-  const markPresent = (s: Party) =>
-    run(() =>
-      s.present_today
-        ? write.undo(s.present_today)
+  const client = useQueryClient()
+  const markPresent = (s: Party) => {
+    const was = s.present_today
+    const restore = showDay(client, s.id, isoDay(), was ? "absent" : "present")
+    return run(() =>
+      was
+        ? write.undo(was)
         : write.addEntry({ kind: "ATTENDANCE", party: s.id })
     )
       .then(
         toasted(
-          t(s.present_today ? "toast.unmarked" : "toast.entry.ATTENDANCE", {
+          t(was ? "toast.unmarked" : "toast.entry.ATTENDANCE", {
             name: s.name,
           })
         )
       )
-      .catch((e) => toast.error(errorText(e, t)))
+      .catch((e) => {
+        restore()
+        toast.error(errorText(e, t))
+      })
+  }
 
   return (
     <div className={cn("flex flex-col", !compact && "h-full")}>
@@ -728,8 +737,10 @@ const editFrom = () => {
 function useSetDay() {
   const { run } = useShell()
   const { t, locale } = useI18n()
-  return (s: Party, on: string, mark: DayMark) =>
-    run(() => write.setAttendance(s.id, on, mark))
+  const client = useQueryClient()
+  return (s: Party, on: string, mark: DayMark) => {
+    const restore = showDay(client, s.id, on, mark)
+    return run(() => write.setAttendance(s.id, on, mark))
       .then(
         toasted(
           t("toast.attendanceSet", {
@@ -739,7 +750,11 @@ function useSetDay() {
           })
         )
       )
-      .catch((e) => toast.error(errorText(e, t)))
+      .catch((e) => {
+        restore()
+        toast.error(errorText(e, t))
+      })
+  }
 }
 
 const DAY_MARKS: DayMark[] = ["present", "half", "absent"]
@@ -1025,10 +1040,10 @@ function StaffCard({
           <Tip label={here ? t("staff.unmarkTitle") : t("staff.markTitle")}>
             <button
               type="button"
-              onClick={() => mark(onPresent)}
+              // The card shows the new state at once (see showDay); a second tap waits for the first to land.
+              onClick={() => !marking && mark(onPresent)}
               aria-pressed={here}
               aria-busy={marking}
-              disabled={marking}
               className={cn(
                 ACTION,
                 phone && ACTION_PHONE,
@@ -1037,9 +1052,7 @@ function StaffCard({
                   : "bg-lime text-black"
               )}
             >
-              {marking ? (
-                <Spinner className="size-4" />
-              ) : here ? (
+              {here ? (
                 <CheckIcon size={16} aria-hidden />
               ) : (
                 <CalendarCheckIcon size={16} aria-hidden />
