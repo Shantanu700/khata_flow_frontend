@@ -69,6 +69,10 @@ import { reduceMotion } from "@/lib/motion"
 import { ProgressBar } from "@/components/app/progress-bar"
 import { cn } from "@/lib/utils"
 
+/** "open" → "Open" for a button; scripts without case are unchanged. */
+const upperFirst = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1)
+
 // Language, session and the shop's words: what the app must not cache across screens' writes.
 const KEPT = new Set(["me", "strings", "languages"])
 
@@ -278,6 +282,11 @@ function App({ me }: { me: Me }) {
     [client, code, freezeRolls, rollTexts]
   )
 
+  const screenRef = React.useRef(screen)
+  React.useEffect(() => {
+    screenRef.current = screen
+  }, [screen])
+
   const replyAudio = useReplyAudio()
   const [landed, setLanded] = React.useState<VoiceCommand | null>(null)
   const chatRef = React.useRef(chatId ?? null)
@@ -290,8 +299,16 @@ function App({ me }: { me: Me }) {
       setLanded(c)
       if (c.chat !== null) setChatId(c.chat)
       replyAudio.autoplay(c)
+      // Someone who moved on while it worked still sees the answer, with a way back to it.
+      if (screenRef.current !== "bolo")
+        toast(c.response_text || t("bolo.stage.reply"), {
+          action: {
+            label: upperFirst(t("palette.hintOpen")),
+            onClick: () => goRef.current("bolo"),
+          },
+        })
     },
-    [replyAudio, setChatId]
+    [replyAudio, setChatId, t]
   )
 
   const command = useCommand({
@@ -328,16 +345,15 @@ function App({ me }: { me: Me }) {
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
-  const screenRef = React.useRef(screen)
+  // Opens Bolo once, when a command starts working (spoken or typed from another screen). Only the change into
+  // "working" counts: go is new on every render, so depending on it bounced anyone who left Bolo mid-command.
+  const lastPhase = React.useRef(command.phase)
   React.useEffect(() => {
-    screenRef.current = screen
-  }, [screen])
-
-  React.useEffect(() => {
-    if (command.phase === "working" && screenRef.current !== "bolo") {
-      go("bolo")
-    }
-  }, [command.phase, go])
+    const started =
+      command.phase === "working" && lastPhase.current !== "working"
+    lastPhase.current = command.phase
+    if (started && screenRef.current !== "bolo") goRef.current("bolo")
+  }, [command.phase])
 
   React.useEffect(() => {
     if (command.error) toast.error(command.error)
