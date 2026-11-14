@@ -843,7 +843,7 @@ function StaffCard({
   onPay: (kind: Money) => void
 }) {
   const { t } = useI18n()
-  const { phone } = useLayout()
+  const { phone, compact } = useLayout()
   const [marking, mark] = usePending()
   const here = s.present_today !== null
   const present = new Set(s.attendance_14d ?? [])
@@ -865,15 +865,25 @@ function StaffCard({
         ? KIND_DOT.STAFF_ADVANCE
         : KIND_DOT.SALARY_PAID
   return (
-    <div className="relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]">
+    <div
+      className={cn(
+        "relative min-h-0 rounded-[32px] bg-raised transition-colors duration-150 hover:bg-[color-mix(in_oklch,var(--raised)_92%,var(--foreground))]",
+        // Outside compact layouts the grid sets the card's height, so the card is a size container: --u grows
+        // −30 → 326px as the card goes from 210 to 566px high, and every size below scales with it, so the content
+        // fills the card at any height. Compact cards size to their content: small, or large on tall screens.
+        compact
+          ? "[--u:0px] tall:[--u:106px]"
+          : "[container-type:size] [--u:clamp(-30px,100cqh-240px,326px)]"
+      )}
+    >
       <div
         className={cn(
-          "@container flex h-full flex-col justify-between gap-[5px] overflow-y-auto rounded-[32px] p-4 tall:gap-3 tall:p-6",
+          "@container flex h-full flex-col justify-between gap-[calc(5px+var(--u)*0.0660)] overflow-y-auto rounded-[32px] p-[calc(16px+var(--u)*0.0755)]",
           phone && "gap-3"
         )}
       >
         <div className="flex items-center gap-3 pr-20">
-          <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg tall:size-12">
+          <span className="grid size-[calc(40px+var(--u)*0.0755)] shrink-0 place-items-center overflow-hidden rounded-full bg-card text-lg">
             <Face
               name={s.name}
               src={photoSrc(`parties/${s.id}`, s.photo_key)}
@@ -885,7 +895,7 @@ function StaffCard({
               onClick={onLedger}
               aria-label={t("staff.fullAccount", { name: s.name })}
               className={cn(
-                "block max-w-full truncate text-lg leading-tight font-medium tall:text-2xl",
+                "block max-w-full truncate text-[calc(18px+var(--u)*0.0566)] leading-tight font-medium",
                 OPENS("after:rounded-[32px]")
               )}
             >
@@ -900,7 +910,7 @@ function StaffCard({
         <div
           className={cn(
             "flex flex-col",
-            phone ? "gap-3.5" : "gap-1 tall:gap-2.5"
+            phone ? "gap-3.5" : "gap-[calc(4px+var(--u)*0.0566)]"
           )}
         >
           <div
@@ -921,7 +931,7 @@ function StaffCard({
                   "leading-none font-light whitespace-nowrap",
                   phone
                     ? "text-[clamp(36px,11.5vw,48px)]"
-                    : "text-[clamp(26px,2.4vw,32px)] tall:text-[clamp(32px,3vw,46px)]",
+                    : "text-[calc(clamp(26px,2.4vw,32px)+var(--u)*0.13)]",
                   due < 0 && OWES
                 )}
               >
@@ -930,7 +940,9 @@ function StaffCard({
               <span
                 className={cn(
                   "text-muted-foreground",
-                  phone ? "text-base leading-none" : "text-xs tall:text-sm"
+                  phone
+                    ? "text-base leading-none"
+                    : "text-[calc(12px+var(--u)*0.0189)]"
                 )}
               >
                 {t(dueLabel(due))}
@@ -969,7 +981,7 @@ function StaffCard({
           <div className="flex items-center gap-3">
             <div
               aria-hidden
-              className="h-2 flex-1 rounded-full bg-card tall:h-2.5"
+              className="h-[calc(8px+var(--u)*0.0189)] flex-1 rounded-full bg-card"
             >
               <div
                 className="h-full rounded-full transition-[width] duration-500"
@@ -983,16 +995,16 @@ function StaffCard({
           role="group"
           aria-label={t("staff.last14")}
           hidden={phone}
-          className="flex flex-col gap-1.5 rounded-[20px] bg-card/50 px-3 py-1.5 tall:gap-2.5 tall:px-4 tall:py-3"
+          className="flex flex-col gap-[calc(6px+var(--u)*0.0377)] rounded-[20px] bg-card/50 px-[calc(12px+var(--u)*0.0377)] py-[calc(6px+var(--u)*0.0566)]"
         >
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-sm font-medium tall:text-base">
+            <span className="flex items-center gap-2 text-[calc(14px+var(--u)*0.0189)] font-medium">
               <CalendarDaysIcon size={16} aria-hidden />
               {t("staff.attendance")}
             </span>
             <span
               data-roll={`staff-${s.id}-att`}
-              className="text-xs text-muted-foreground tabular-nums tall:text-sm"
+              className="text-[calc(12px+var(--u)*0.0189)] text-muted-foreground tabular-nums"
             >
               {t("staff.presentOf", {
                 present: present.size - half.size / 2,
@@ -1013,7 +1025,7 @@ function StaffCard({
                     : "absent"
                 }
                 onPick={(mark) => setDay(s, iso, mark)}
-                className="w-full max-w-5 tall:max-w-7"
+                className="w-full max-w-[calc(20px+var(--u)*0.0755)]"
               >
                 <span
                   className={cn(
@@ -1134,7 +1146,7 @@ function Given({
     >
       <span
         aria-hidden
-        className="grid size-8 shrink-0 place-items-center rounded-xl tall:size-10"
+        className="grid size-[calc(32px+var(--u)*0.0755)] shrink-0 place-items-center rounded-xl"
         style={{
           color,
           background: `color-mix(in oklch, ${color} 18%, transparent)`,
@@ -1145,11 +1157,11 @@ function Given({
       <span className="leading-tight">
         <span
           data-roll={roll}
-          className="block text-sm tabular-nums tall:text-base"
+          className="block text-[calc(14px+var(--u)*0.0189)] tabular-nums"
         >
           {value}
         </span>
-        <span className="block text-xs text-muted-foreground tall:text-sm">
+        <span className="block text-[calc(12px+var(--u)*0.0189)] text-muted-foreground">
           {label}
         </span>
       </span>
@@ -1159,7 +1171,7 @@ function Given({
 
 /** The card's action buttons, in the app's own pill styles: lime for the main action, card-coloured for the rest. */
 const ACTION =
-  "flex h-10 w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[14px] [&_svg]:shrink-0 whitespace-nowrap transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 tall:h-12 tall:text-[15px]"
+  "flex h-[calc(40px+var(--u)*0.0755)] w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-3 text-[calc(14px+var(--u)*0.0094)] [&_svg]:shrink-0 whitespace-nowrap transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40"
 const SECONDARY = "bg-card text-foreground"
 // Three buttons share a phone-width card: less inner room, so "Present" and "Salary" fit whole.
 const ACTION_PHONE = "gap-1.5 px-2 text-[13px]"
