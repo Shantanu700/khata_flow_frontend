@@ -21,6 +21,7 @@ Sampled from the reference's own pixels (`Design/89-…jpg` is its colour page; 
 | Cyan | `cyan` | `#66FFED` | Secondary accent ("Jawab" chip) |
 | Red | `red` / `destructive` | `#EF4949` | Alerts, low stock, the notification dot |
 | Red ink | `red-ink` | `#FFB3B3` | Small red text on dark (8:1); `red` itself is 3.7:1 |
+| Green ink | `green-ink` | `#69FF67` (light theme `#2A7A3B`) | A customer's advance, shown as +₹ (`#69FF67` is `heat-5`) |
 | Heat 1–5 | `heat-1` … `heat-5` | `#FE9695` `#FFA566` `#FFDD67` `#A9FF66` `#69FF67` | The reference's five-dot scale, cold to hot. Debtor cards use it for "how much has come back" |
 
 Use lime sparingly: one highlighted card per row, the active pill, the primary action. Inactive controls stay grey.

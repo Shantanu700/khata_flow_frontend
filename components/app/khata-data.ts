@@ -109,6 +109,8 @@ export type EntryView = {
   tag: string
   canUndo: boolean
   running: string
+  /** the running balance is below zero: the customer has paid ahead */
+  advance: boolean
 }
 
 export function entryView(e: Entry, t: T, locale: string): EntryView {
@@ -138,11 +140,8 @@ export function entryView(e: Entry, t: T, locale: string): EntryView {
         ? t("entry.undid", { id: e.reverses })
         : "",
     canUndo: !undo && !e.is_reversed,
-    running:
-      e.running_balance === null
-        ? ""
-        : e.running_balance < 0
-          ? t("khata.advanceAmount", { amount: inr(e.running_balance) })
-          : inr(e.running_balance),
+    running: e.running_balance === null ? "" : inr(e.running_balance),
+    // Below zero the customer has paid ahead: shown as a green +₹.
+    advance: (e.running_balance ?? 0) < 0,
   }
 }
