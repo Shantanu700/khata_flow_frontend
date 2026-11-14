@@ -5,7 +5,8 @@ import { Flip } from "gsap/Flip"
 
 import { reduceMotion } from "@/lib/motion"
 
-gsap.registerPlugin(useGSAP, Flip)
+// Browser only: registering starts GSAP's ticker, and Workers allow no timers while a module loads on the server.
+if (typeof window !== "undefined") gsap.registerPlugin(useGSAP, Flip)
 
 // Dev only: slow everything down from the console with gsap.globalTimeline.timeScale(0.2).
 if (process.env.NODE_ENV !== "production" && typeof window !== "undefined")

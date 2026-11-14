@@ -14,6 +14,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Generated from the API schema by `bun run gen:api`.
     "lib/client/**",
+    // vinext build output for Cloudflare Workers.
+    ".cloudflare/**",
+    ".vinext/**",
+    "dist/**",
     // design-sync: staged converter scripts and generated bundle
     ".ds-sync/**",
     "ds-bundle/**",
