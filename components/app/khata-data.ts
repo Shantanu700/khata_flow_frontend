@@ -138,6 +138,11 @@ export function entryView(e: Entry, t: T, locale: string): EntryView {
         ? t("entry.undid", { id: e.reverses })
         : "",
     canUndo: !undo && !e.is_reversed,
-    running: e.running_balance === null ? "" : inr(e.running_balance),
+    running:
+      e.running_balance === null
+        ? ""
+        : e.running_balance < 0
+          ? t("khata.advanceAmount", { amount: inr(e.running_balance) })
+          : inr(e.running_balance),
   }
 }
