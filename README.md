@@ -58,3 +58,17 @@ which keeps the API token in an httpOnly cookie.
 - **Speak** records the microphone, streams it to the API's live-transcript WebSocket for words on screen, and
   sends the recording for the command (`components/app/bolo.tsx`, `components/app/live-mic.ts`).
 - **Words on screen** come from the API's catalogs (`/api/v1/i18n/<language>/`), one per language.
+
+## Deploying to Cloudflare Workers (free plan)
+
+The production build uses [vinext](https://github.com/cloudflare/vinext), Cloudflare's Vite-based build of the same Next.js app; `bun run dev:api` (Next.js) stays the everyday dev server.
+
+```bash
+npx cf auth login          # once per machine
+bun run deploy:vinext      # builds and deploys the `khataflow` Worker
+```
+
+- The API address is `KHATAFLOW_API_URL` in `cloudflare.config.ts` (the Render service). Change it there and redeploy.
+- `bun run build:vinext && bun run start:vinext` runs the built Worker locally (port 4173 with `-- --port 4173`).
+- A vinext build rewrites `.next/types/routes.d.ts`; if `bun run typecheck` then complains about `.next/types`, run `bunx next typegen`.
+- Workers have no filesystem: read files with `import`, not `fs`.

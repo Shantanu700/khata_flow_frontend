@@ -5,7 +5,8 @@ import { Flip } from "gsap/Flip"
 
 import { reduceMotion } from "@/lib/motion"
 
-gsap.registerPlugin(useGSAP, Flip)
+// Browser only: registering starts GSAP's ticker, and Workers allow no timers while a module loads on the server.
+if (typeof window !== "undefined") gsap.registerPlugin(useGSAP, Flip)
 
 /** Lead Flow's in-place list motion (hooks/use-dashboard-motion.ts): rows (`data-flip-id="row-…"`)
  *  glide to their new order after a sort, filter, search or page change (0.3s), new rows fade in,
