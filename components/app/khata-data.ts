@@ -109,6 +109,8 @@ export type EntryView = {
   tag: string
   canUndo: boolean
   running: string
+  /** the running balance as a number (0 when there is none), for its sign */
+  balance: number
 }
 
 export function entryView(e: Entry, t: T, locale: string): EntryView {
@@ -139,5 +141,6 @@ export function entryView(e: Entry, t: T, locale: string): EntryView {
         : "",
     canUndo: !undo && !e.is_reversed,
     running: e.running_balance === null ? "" : inr(e.running_balance),
+    balance: e.running_balance ?? 0,
   }
 }

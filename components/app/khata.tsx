@@ -14,7 +14,7 @@ import {
   write,
 } from "@/components/app/data"
 import { DateRange, rangeParams, type Range } from "@/components/app/date-range"
-import { errorText, useI18n } from "@/components/app/i18n"
+import { errorText, useI18n, type T } from "@/components/app/i18n"
 import {
   ChevronIcon,
   MicIcon,
@@ -385,8 +385,21 @@ export function KhataScreen() {
   )
 }
 
-const balanceText = (c: Party, t: (k: string) => string) =>
-  (c.balance ?? 0) <= 0 ? t("khata.clear") : inr(c.balance)
+/** A customer's balance as a figure: −₹ in red when they owe the shop, +₹ in green when they paid ahead. */
+const Signed = ({ amount }: { amount: number }) =>
+  amount > 0 ? (
+    <span className="text-red-ink">−{inr(amount)}</span>
+  ) : amount < 0 ? (
+    <span className="text-green-ink">+{inr(amount)}</span>
+  ) : (
+    <>{inr(0)}</>
+  )
+
+/** What a customer owes, "Clear", or (below zero) what they paid ahead. */
+const balanceText = (c: Party, t: T) => {
+  const b = c.balance ?? 0
+  return b === 0 ? t("khata.clear") : <Signed amount={b} />
+}
 
 function CustomerLedger({
   sel,
@@ -558,25 +571,19 @@ function CustomerLedger({
             <Dot color="var(--chart-udhaar)" />
             {phone ? t("kind.CREDIT_GIVEN") : t("khata.writeCredit")}
           </button>
-          <Tip label={owed <= 0 ? t("khata.nothingOwed") : undefined}>
-            <span
-              tabIndex={owed <= 0 ? 0 : undefined}
-              className={cn("flex", phone && "flex-1")}
+          <span className={cn("flex", phone && "flex-1")}>
+            <button
+              type="button"
+              onClick={() => onWrite("PAYMENT_RECEIVED")}
+              className={cn(
+                "flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-full bg-raised px-5 text-sm transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 disabled:active:scale-100",
+                phone && "w-full"
+              )}
             >
-              <button
-                type="button"
-                onClick={() => onWrite("PAYMENT_RECEIVED")}
-                disabled={owed <= 0}
-                className={cn(
-                  "flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-full bg-raised px-5 text-sm transition-transform duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-40 disabled:active:scale-100",
-                  phone && "w-full"
-                )}
-              >
-                <Dot color="var(--chart-vasooli)" />
-                {phone ? t("kind.PAYMENT_RECEIVED") : t("khata.writePayment")}
-              </button>
-            </span>
-          </Tip>
+              <Dot color="var(--chart-vasooli)" />
+              {phone ? t("kind.PAYMENT_RECEIVED") : t("khata.writePayment")}
+            </button>
+          </span>
           <Tip label={t("dash.speak")}>
             <button
               type="button"
@@ -597,11 +604,13 @@ function CustomerLedger({
               phone ? "text-5xl" : compact ? "text-[56px]" : "text-[64px]"
             )}
           >
-            {inr(owed)}
+            <Signed amount={owed} />
           </p>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            {owed > 0 ? t("khata.toCollect") : t("khata.settled")}
-          </p>
+          {owed >= 0 && (
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {owed > 0 ? t("khata.toCollect") : t("khata.settled")}
+            </p>
+          )}
         </div>
       </div>
 
@@ -656,7 +665,7 @@ function CustomerLedger({
                   </span>
                   {e.running && (
                     <span className="block text-xs text-muted-foreground tabular-nums">
-                      {t("khata.runningShort", { amount: e.running })}
+                      <Signed amount={e.balance} />
                     </span>
                   )}
                 </span>
@@ -708,7 +717,7 @@ function CustomerLedger({
                   {e.amt}
                 </span>
                 <span className="text-right text-sm text-muted-foreground tabular-nums">
-                  {e.running}
+                  {e.running && <Signed amount={e.balance} />}
                 </span>
                 {e.canUndo ? (
                   <UndoButton
@@ -755,7 +764,6 @@ function EntryForm({
   const val = Math.max(0, Math.round(Number(amount) || 0))
   const paying = kind === "PAYMENT_RECEIVED"
   const next = owed + (paying ? -val : val)
-  const over = paying && val > owed
   const money = (["CREDIT_GIVEN", "PAYMENT_RECEIVED"] as const).map((k) => ({
     value: k,
     label: (
@@ -775,7 +783,7 @@ function EntryForm({
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (val <= 0 || over) return
+    if (val <= 0) return
     setBusy(true)
     setError("")
     try {
@@ -798,7 +806,9 @@ function EntryForm({
         <Dialog.Description className="mt-1 text-sm text-muted-foreground">
           {owed > 0
             ? t("khata.owesNow", { amount: inr(owed) })
-            : t("khata.clearNow")}
+            : owed < 0
+              ? t("khata.advanceNow", { amount: inr(owed) })
+              : t("khata.clearNow")}
         </Dialog.Description>
       </div>
       <Segmented
@@ -816,9 +826,7 @@ function EntryForm({
         <span
           className={cn(
             FIELD,
-            "flex items-center gap-2 focus-within:ring-2 focus-within:ring-ring",
-            over &&
-              "ring-2 ring-[var(--red-ink)] focus-within:ring-[var(--red-ink)]"
+            "flex items-center gap-2 focus-within:ring-2 focus-within:ring-ring"
           )}
         >
           <span className="text-muted-foreground">₹</span>
@@ -827,14 +835,13 @@ function EntryForm({
             type="number"
             required
             min={1}
-            max={paying ? Math.max(1, owed) : 1000000}
+            max={1000000}
             step={1}
             inputMode="numeric"
             autoFocus
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0"
-            aria-invalid={over}
             className="min-w-0 flex-1 [appearance:textfield] bg-transparent text-2xl font-light outline-none placeholder:text-muted-foreground [&::-webkit-inner-spin-button]:appearance-none"
           />
         </span>
@@ -859,23 +866,13 @@ function EntryForm({
         </span>
       </label>
       <p
-        role={over ? "alert" : undefined}
         aria-live="polite"
-        className={cn(
-          "flex justify-between rounded-[20px] bg-background px-5 py-4 text-sm",
-          over ? "text-[var(--red-ink)]" : "text-muted-foreground"
-        )}
+        className="flex justify-between rounded-[20px] bg-background px-5 py-4 text-sm text-muted-foreground"
       >
-        {over ? (
-          t("error.OVERPAYMENT", { amount: inr(owed) })
-        ) : (
-          <>
-            <span>{t("khata.newBalance")}</span>
-            <span className="text-foreground">
-              {next <= 0 ? t("khata.settledShort") : inr(next)}
-            </span>
-          </>
-        )}
+        <span>{t("khata.newBalance")}</span>
+        <span className="text-foreground">
+          {next === 0 ? t("khata.settledShort") : <Signed amount={next} />}
+        </span>
       </p>
       <FormError error={error} />
       <FormActions
@@ -914,7 +911,7 @@ function CustomerForm({
   const [confirming, setConfirming] = React.useState(false)
   const [photo, setPhoto] = React.useState<PhotoChange>()
   const owed = item?.balance ?? 0
-  const clear = item ? owed <= 0 : false
+  const clear = item ? owed === 0 : false
 
   const save = async (work: () => Promise<number | null>, name?: string) => {
     setBusy(true)
@@ -1007,7 +1004,9 @@ function CustomerForm({
             ? t("khata.newBody")
             : clear
               ? t("khata.editBody")
-              : t("khata.editBodyOwing", { amount: inr(owed) })}
+              : owed < 0
+                ? t("khata.advanceNow", { amount: inr(owed) })
+                : t("khata.editBodyOwing", { amount: inr(owed) })}
         </Dialog.Description>
       </div>
       <PhotoField
