@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-query"
 
 import { BoloScreen } from "@/components/app/bolo"
+import { CommandPalette, shortcut } from "@/components/app/command-palette"
 import { DashboardScreen } from "@/components/app/dashboard"
 import {
   keys,
@@ -25,6 +26,7 @@ import {
   LogoMark,
   MicIcon,
   MoonIcon,
+  SearchIcon,
   SunIcon,
 } from "@/components/app/icons"
 import { KhataScreen } from "@/components/app/khata"
@@ -50,7 +52,14 @@ import { useCommand } from "@/components/app/use-command"
 import { useRecorder } from "@/components/app/use-recorder"
 import { useReplyAudio } from "@/components/app/use-reply-audio"
 import { toast } from "sonner"
-import { ApiError, SIGNED_OUT, data, getV1I18N, type Me, type VoiceCommand } from "@/lib/api"
+import {
+  ApiError,
+  SIGNED_OUT,
+  data,
+  getV1I18N,
+  type Me,
+  type VoiceCommand,
+} from "@/lib/api"
 import { reduceMotion } from "@/lib/motion"
 import { ProgressBar } from "@/components/app/progress-bar"
 import { cn } from "@/lib/utils"
@@ -172,6 +181,7 @@ function App({ me }: { me: Me }) {
   const [customerId, setCustomerId] = React.useState<number | null>(null)
   const [said, setSaid] = React.useState<string | null>(null)
   const [chatId, setChatId] = React.useState<number | null | undefined>()
+  const [palette, setPalette] = React.useState(false)
   const frameRef = React.useRef<HTMLDivElement>(null)
   const contentRef = React.useRef<HTMLDivElement>(null)
   const layout = React.useMemo(() => layoutFor(size.w, size.h), [size])
@@ -199,6 +209,17 @@ function App({ me }: { me: Me }) {
     const moved = () => goRef.current(screenAt(window.location.pathname))
     window.addEventListener("popstate", moved)
     return () => window.removeEventListener("popstate", moved)
+  }, [])
+
+  // ⌘K / Ctrl+K opens the palette from any screen, even while typing in a field.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "k" || !(e.metaKey || e.ctrlKey)) return
+      e.preventDefault()
+      setPalette((o) => !o)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
   }, [])
 
   // Writes in flight, for the top progress bar (reads it gets from React Query).
@@ -460,6 +481,16 @@ function App({ me }: { me: Me }) {
                         disabled={command.busy}
                         className="h-10 min-w-0 flex-1 bg-transparent text-base text-black outline-none placeholder:text-black/50 disabled:opacity-50 sm:text-sm"
                       />
+                      {!phone && (
+                        <button
+                          type="button"
+                          aria-label={t("palette.open")}
+                          onClick={() => setPalette(true)}
+                          className="shrink-0 cursor-pointer rounded-md bg-black/5 px-1.5 py-0.5 text-[11px] whitespace-nowrap text-black/60 transition-colors hover:bg-black/10 hover:text-black"
+                        >
+                          {shortcut()}
+                        </button>
+                      )}
                       {command.phase === "working" ? (
                         <div
                           role="img"
@@ -497,6 +528,17 @@ function App({ me }: { me: Me }) {
                   )}
                 </form>
               )}
+              <Tip label={t("palette.open")}>
+                <button
+                  type="button"
+                  aria-label={t("palette.open")}
+                  aria-keyshortcuts="Control+K Meta+K"
+                  onClick={() => setPalette(true)}
+                  className="grid size-[52px] cursor-pointer place-items-center rounded-full bg-card"
+                >
+                  <SearchIcon />
+                </button>
+              </Tip>
               <LanguagePicker
                 value={code}
                 onChange={setLanguage}
@@ -559,6 +601,17 @@ function App({ me }: { me: Me }) {
             </div>
           </main>
         </div>
+        <CommandPalette
+          open={palette}
+          onOpenChange={setPalette}
+          screen={screen}
+          go={go}
+          openCustomer={shell.openCustomer}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          speak={() => !command.busy && mic.listen()}
+          phone={phone}
+        />
       </ShellContext>
     </LayoutContext>
   )
